@@ -315,13 +315,10 @@ class _QuickTagItemDialogState extends State<QuickTagItemDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
-        OutlinedButton(
-          onPressed: () => _submit(continueIdentifying: true),
-          child: const Text('Tag & Identify Next'),
-        ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF10B981),
+            foregroundColor: Colors.white,
           ),
           onPressed: () => _submit(continueIdentifying: false),
           child: const Text('Tag Item'),

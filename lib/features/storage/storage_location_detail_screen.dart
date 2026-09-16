@@ -610,6 +610,104 @@ class _StorageLocationDetailScreenState
                   }
                 },
               ),
+              const SizedBox(height: 12),
+              const Divider(color: Color(0xFF334155), height: 1),
+              const SizedBox(height: 12),
+
+              // Option 4: Edit Details
+              _buildDrawerActionTile(
+                icon: Icons.edit_outlined,
+                iconColor: const Color(0xFF94A3B8),
+                title: 'Edit Details',
+                subtitle: 'Rename container or change description',
+                onTap: () async {
+                  Navigator.of(ctx).pop();
+                  final edited = await showDialog<StorageLocation>(
+                    context: context,
+                    builder: (dCtx) => AddEditLocationDialog(
+                      libraryId: location.libraryId,
+                      locationToEdit: location,
+                    ),
+                  );
+                  if (edited != null) {
+                    final repo = ref.read(repositoryProvider);
+                    await repo.saveStorageLocation(edited);
+                    ref.invalidate(storageLocationDetailProvider(location.id));
+                    ref.invalidate(storageLocationsProvider(null));
+                    ref.invalidate(allStorageLocationsProvider);
+                  }
+                },
+              ),
+              const SizedBox(height: 8),
+
+              // Option 5: Add Level Above
+              _buildDrawerActionTile(
+                icon: Icons.drive_folder_upload_outlined,
+                iconColor: const Color(0xFF38BDF8),
+                title: 'Add Level Above...',
+                subtitle: 'Insert a parent container above this location',
+                onTap: () async {
+                  Navigator.of(ctx).pop();
+                  final allLocs = ref.read(allStorageLocationsProvider).value ?? [];
+                  final reparented = await showDialog<bool>(
+                    context: context,
+                    builder: (dCtx) => ReparentLocationDialog(
+                      currentLocation: location,
+                      allLocations: allLocs,
+                    ),
+                  );
+                  if (reparented == true) {
+                    ref.invalidate(storageLocationDetailProvider(location.id));
+                    ref.invalidate(storageLocationsProvider(null));
+                    ref.invalidate(allStorageLocationsProvider);
+                    ref.invalidate(locationBreadcrumbsProvider(location.id));
+                  }
+                },
+              ),
+              const SizedBox(height: 8),
+
+              // Option 6: Delete Location
+              _buildDrawerActionTile(
+                icon: Icons.delete_outline,
+                iconColor: const Color(0xFFEF4444),
+                title: 'Delete Location',
+                subtitle: 'Permanently remove this area and all contents',
+                onTap: () async {
+                  Navigator.of(ctx).pop();
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (dCtx) => AlertDialog(
+                      backgroundColor: const Color(0xFF1E293B),
+                      title: const Text('Delete Location?'),
+                      content: Text(
+                        'Are you sure you want to delete "${location.name}" and all child sub-containers?',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(dCtx).pop(false),
+                          child: const Text('Cancel'),
+                        ),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+                          onPressed: () => Navigator.of(dCtx).pop(true),
+                          child: const Text('Delete'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm == true) {
+                    final repo = ref.read(repositoryProvider);
+                    await repo.deleteStorageLocation(location.id);
+                    ref.invalidate(storageLocationsProvider(null));
+                    ref.invalidate(storageLocationsProvider(location.parentId));
+                    ref.invalidate(allStorageLocationsProvider);
+                    ref.invalidate(storageLocationDetailProvider(location.id));
+                    if (context.mounted) {
+                      context.go('/storage');
+                    }
+                  }
+                },
+              ),
             ],
           ),
         );
@@ -1001,6 +1099,663 @@ class _StorageLocationDetailScreenState
     );
   }
 
+  Widget _buildDesktopInspectorPanel({
+    required StorageLocation location,
+    required List<StorageLocation> childLocations,
+    required List<Item> items,
+    required Library? selectedLib,
+  }) {
+    return DefaultTabController(
+      length: 3,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: const BoxDecoration(
+              color: Color(0xFF131B2E),
+              border: Border(
+                bottom: BorderSide(color: Color(0xFF263352), width: 1),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.dashboard_customize_outlined,
+                          size: 20, color: Color(0xFF818CF8)),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            location.name,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            location.description?.isNotEmpty == true
+                                ? location.description!
+                                : 'Storage Inspector Workspace',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF94A3B8),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                // Metric badges
+                Row(
+                  children: [
+                    _buildMetricChip(
+                      icon: Icons.folder_open,
+                      count: childLocations.length,
+                      label: 'Areas',
+                      color: const Color(0xFF06B6D4),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildMetricChip(
+                      icon: Icons.inventory_2_outlined,
+                      count: items.length,
+                      label: 'Items',
+                      color: const Color(0xFF10B981),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildMetricChip(
+                      icon: Icons.polyline_outlined,
+                      count: location.regions.length,
+                      label: 'Polygons',
+                      color: const Color(0xFF818CF8),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // Tab Bar
+          Container(
+            color: const Color(0xFF111827),
+            child: const TabBar(
+              indicatorColor: Color(0xFF6366F1),
+              indicatorWeight: 3,
+              labelColor: Colors.white,
+              unselectedLabelColor: Color(0xFF94A3B8),
+              labelStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              tabs: [
+                Tab(text: 'Areas'),
+                Tab(text: 'Items'),
+                Tab(text: 'Polygons'),
+              ],
+            ),
+          ),
+
+          // Tab Views
+          Expanded(
+            child: TabBarView(
+              children: [
+                _buildDesktopAreasTab(
+                  location: location,
+                  childLocations: childLocations,
+                ),
+                _buildDesktopItemsTab(
+                  location: location,
+                  items: items,
+                  selectedLib: selectedLib,
+                ),
+                _buildDesktopRegionsTab(
+                  location: location,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetricChip({
+    required IconData icon,
+    required int count,
+    required String label,
+    required Color color,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 14, color: color),
+                const SizedBox(width: 4),
+                Text(
+                  '$count',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF94A3B8),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDesktopAreasTab({
+    required StorageLocation location,
+    required List<StorageLocation> childLocations,
+  }) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Storage Areas (${childLocations.length})',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFE2E8F0),
+                ),
+              ),
+              FilledButton.tonalIcon(
+                style: FilledButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  backgroundColor: const Color(0xFF06B6D4).withValues(alpha: 0.15),
+                  foregroundColor: const Color(0xFF38BDF8),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                ),
+                icon: const Icon(Icons.add, size: 14),
+                label: const Text('Add Area', style: TextStyle(fontSize: 12)),
+                onPressed: () async {
+                  final newSub = await showDialog<StorageLocation>(
+                    context: context,
+                    builder: (ctx) => AddEditLocationDialog(
+                      libraryId: location.libraryId,
+                      parentId: location.id,
+                    ),
+                  );
+                  if (newSub != null) {
+                    final repo = ref.read(repositoryProvider);
+                    await repo.saveStorageLocation(newSub);
+                    ref.invalidate(storageLocationsProvider(location.id));
+                    ref.invalidate(allStorageLocationsProvider);
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+        const Divider(color: Color(0xFF1E293B), height: 1),
+        Expanded(
+          child: childLocations.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.folder_open, size: 40, color: Color(0xFF334155)),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'No sub-areas yet',
+                          style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Click "+ Add Area" to create a nested storage space.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : ListView.separated(
+                  itemCount: childLocations.length,
+                  separatorBuilder: (_, __) =>
+                      const Divider(color: Color(0xFF1E293B), height: 1),
+                  itemBuilder: (context, idx) {
+                    final sub = childLocations[idx];
+                    final isMapped = location.regions
+                        .any((r) => r.targetLocationId == sub.id);
+                    return ListTile(
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                      leading: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: isMapped
+                              ? const Color(0xFF06B6D4).withValues(alpha: 0.15)
+                              : const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Icon(
+                          isMapped ? Icons.folder_outlined : Icons.folder_open_outlined,
+                          size: 18,
+                          color: isMapped
+                              ? const Color(0xFF06B6D4)
+                              : const Color(0xFFF59E0B),
+                        ),
+                      ),
+                      title: Text(
+                        sub.name,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                      subtitle: sub.description != null && sub.description!.isNotEmpty
+                          ? Text(
+                              sub.description!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  fontSize: 11, color: Color(0xFF94A3B8)),
+                            )
+                          : null,
+                      trailing: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: isMapped
+                              ? const Color(0xFF06B6D4).withValues(alpha: 0.15)
+                              : const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          isMapped ? 'Mapped' : 'Unmapped',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: isMapped
+                                ? const Color(0xFF06B6D4)
+                                : const Color(0xFFF59E0B),
+                          ),
+                        ),
+                      ),
+                      onTap: () => context.go('/storage/${sub.id}'),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDesktopItemsTab({
+    required StorageLocation location,
+    required List<Item> items,
+    required Library? selectedLib,
+  }) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Items Stored Here (${items.length})',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFE2E8F0),
+                ),
+              ),
+              FilledButton.tonalIcon(
+                style: FilledButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  backgroundColor: const Color(0xFF10B981).withValues(alpha: 0.15),
+                  foregroundColor: const Color(0xFF10B981),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                ),
+                icon: const Icon(Icons.add, size: 14),
+                label: const Text('Add Item', style: TextStyle(fontSize: 12)),
+                onPressed: () async {
+                  if (selectedLib == null) return;
+                  final newItem = await showDialog<Item>(
+                    context: context,
+                    builder: (ctx) => AddEditItemDialog(
+                      libraryId: selectedLib.id,
+                      initialLocationId: location.id,
+                    ),
+                  );
+                  if (newItem != null) {
+                    final repo = ref.read(repositoryProvider);
+                    await repo.saveItem(newItem);
+                    ref.invalidate(locationItemsProvider(location.id));
+                    ref.invalidate(libraryItemsProvider);
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+        const Divider(color: Color(0xFF1E293B), height: 1),
+        Expanded(
+          child: items.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.inventory_2_outlined,
+                            size: 40, color: Color(0xFF334155)),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'No items here yet',
+                          style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Click "+ Add Item" or draw an item to tag possessions.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : ListView.separated(
+                  itemCount: items.length,
+                  separatorBuilder: (_, __) =>
+                      const Divider(color: Color(0xFF1E293B), height: 1),
+                  itemBuilder: (context, idx) {
+                    final it = items[idx];
+                    final isMapped = location.regions
+                        .any((r) => r.targetItemId == it.id);
+                    return ListTile(
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                      leading: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Icon(
+                          Icons.inventory_2_outlined,
+                          size: 18,
+                          color: Color(0xFF10B981),
+                        ),
+                      ),
+                      title: Text(
+                        it.name,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                      subtitle: it.description != null && it.description!.isNotEmpty
+                          ? Text(
+                              it.description!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  fontSize: 11, color: Color(0xFF94A3B8)),
+                            )
+                          : null,
+                      trailing: !isMapped
+                          ? Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF59E0B)
+                                    .withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text(
+                                'Unmapped',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFFF59E0B),
+                                ),
+                              ),
+                            )
+                          : null,
+                      onTap: () => context.go('/items/${it.id}'),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDesktopRegionsTab({
+    required StorageLocation location,
+  }) {
+    final isEditing = _canvasMode != CanvasMode.view;
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Polygons (${location.regions.length})',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFE2E8F0),
+                ),
+              ),
+              FilledButton.tonalIcon(
+                style: FilledButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  backgroundColor: isEditing
+                      ? const Color(0xFF10B981).withValues(alpha: 0.15)
+                      : const Color(0xFF6366F1).withValues(alpha: 0.15),
+                  foregroundColor: isEditing
+                      ? const Color(0xFF10B981)
+                      : const Color(0xFF818CF8),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                ),
+                icon: Icon(
+                  isEditing ? Icons.check : Icons.mode_edit_outline,
+                  size: 14,
+                ),
+                label: Text(
+                  isEditing ? 'Done Editing' : 'Edit Polygons',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                onPressed: () {
+                  setState(() {
+                    if (isEditing) {
+                      _canvasMode = CanvasMode.view;
+                      _isIdentifyingItems = false;
+                    } else {
+                      _canvasMode = CanvasMode.edit;
+                    }
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
+        const Divider(color: Color(0xFF1E293B), height: 1),
+        Expanded(
+          child: location.regions.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.polyline_outlined,
+                            size: 40, color: Color(0xFF334155)),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'No polygons mapped',
+                          style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Click "Edit" in the top bar to draw storage areas or items on the image.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : ListView.separated(
+                  itemCount: location.regions.length,
+                  separatorBuilder: (_, __) =>
+                      const Divider(color: Color(0xFF1E293B), height: 1),
+                  itemBuilder: (context, idx) {
+                    final reg = location.regions[idx];
+                    final isLocation = reg.isLinkedToLocation;
+                    final isItem = reg.isLinkedToItem;
+
+                    final iconData = isLocation
+                        ? Icons.folder_outlined
+                        : (isItem
+                            ? Icons.inventory_2_outlined
+                            : Icons.polyline_outlined);
+                    final iconColor = isLocation
+                        ? const Color(0xFF06B6D4)
+                        : (isItem
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFF818CF8));
+
+                    final typeLabel = isLocation
+                        ? 'Storage Area'
+                        : (isItem ? 'Item' : 'Unlinked Polygon');
+
+                    return ListTile(
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                      leading: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: iconColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Icon(iconData, size: 18, color: iconColor),
+                      ),
+                      title: Text(
+                        reg.label.isNotEmpty ? reg.label : 'Polygon #${idx + 1}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                      subtitle: Text(
+                        typeLabel,
+                        style: TextStyle(fontSize: 11, color: iconColor),
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.drive_file_rename_outline,
+                                size: 16, color: Color(0xFF94A3B8)),
+                            tooltip: 'Rename',
+                            onPressed: () async {
+                              final controller =
+                                  TextEditingController(text: reg.label);
+                              final newLabel = await showDialog<String>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  backgroundColor: const Color(0xFF1E293B),
+                                  title: const Text('Rename Region',
+                                      style: TextStyle(color: Colors.white)),
+                                  content: TextField(
+                                    controller: controller,
+                                    autofocus: true,
+                                    style: const TextStyle(color: Colors.white),
+                                    decoration: const InputDecoration(
+                                      labelText: 'Label',
+                                      labelStyle:
+                                          TextStyle(color: Color(0xFF94A3B8)),
+                                    ),
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(ctx),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    FilledButton(
+                                      onPressed: () =>
+                                          Navigator.pop(ctx, controller.text.trim()),
+                                      child: const Text('Save'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (newLabel != null && newLabel.isNotEmpty) {
+                                await _handleRenameRegion(reg, newLabel, location);
+                              }
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline,
+                                size: 16, color: Color(0xFFEF4444)),
+                            tooltip: 'Delete Region',
+                            onPressed: () => _handleDeleteRegion(reg, location),
+                          ),
+                        ],
+                      ),
+                      onTap: () => _onRegionTapped(reg),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final locationAsync =
@@ -1047,21 +1802,21 @@ class _StorageLocationDetailScreenState
           appBar: AppBar(
             title: Text(location.name),
             actions: [
-              // Prominent single "Edit / Map" button activating the slide-up drawer
+              // Prominent "Edit" button activating the management panel
               Padding(
                 padding:
-                    const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+                    const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
                 child: FilledButton.icon(
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF6366F1),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
+                        horizontal: 14, vertical: 6),
                     visualDensity: VisualDensity.compact,
                   ),
                   icon: const Icon(Icons.tune, size: 16),
                   label: const Text(
-                    'Edit / Map',
+                    'Edit',
                     style:
                         TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                   ),
@@ -1071,114 +1826,6 @@ class _StorageLocationDetailScreenState
                     selectedLib: selectedLib,
                   ),
                 ),
-              ),
-
-              // Hierarchy and location actions
-              PopupMenuButton<String>(
-                onSelected: (val) async {
-                  final repo = ref.read(repositoryProvider);
-                  if (val == 'edit') {
-                    final edited = await showDialog<StorageLocation>(
-                      context: context,
-                      builder: (ctx) => AddEditLocationDialog(
-                        libraryId: location.libraryId,
-                        locationToEdit: location,
-                      ),
-                    );
-                    if (edited != null) {
-                      await repo.saveStorageLocation(edited);
-                      ref.invalidate(
-                          storageLocationDetailProvider(location.id));
-                    }
-                  } else if (val == 'add_above') {
-                    final allLocs =
-                        ref.read(allStorageLocationsProvider).value ?? [];
-                    final reparented = await showDialog<bool>(
-                      context: context,
-                      builder: (ctx) => ReparentLocationDialog(
-                        currentLocation: location,
-                        allLocations: allLocs,
-                      ),
-                    );
-                    if (reparented == true) {
-                      ref.invalidate(
-                          storageLocationDetailProvider(location.id));
-                      ref.invalidate(storageLocationsProvider(null));
-                      ref.invalidate(allStorageLocationsProvider);
-                      ref.invalidate(
-                          locationBreadcrumbsProvider(location.id));
-                    }
-                  } else if (val == 'delete') {
-                    final confirm = await showDialog<bool>(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        title: const Text('Delete Location?'),
-                        content: Text(
-                          'Are you sure you want to delete "${location.name}" and all child sub-containers?',
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.of(ctx).pop(false),
-                            child: const Text('Cancel'),
-                          ),
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red),
-                            onPressed: () => Navigator.of(ctx).pop(true),
-                            child: const Text('Delete'),
-                          ),
-                        ],
-                      ),
-                    );
-                    if (confirm == true) {
-                      await repo.deleteStorageLocation(location.id);
-                      ref.invalidate(storageLocationsProvider(null));
-                      ref.invalidate(storageLocationsProvider(location.parentId));
-                      ref.invalidate(allStorageLocationsProvider);
-                      ref.invalidate(storageLocationDetailProvider(location.id));
-                      if (context.mounted) {
-                        context.go('/storage');
-                      }
-                    }
-                  }
-                },
-                itemBuilder: (ctx) => [
-                  const PopupMenuItem(
-                    value: 'edit',
-                    child: Row(
-                      children: [
-                        Icon(Icons.edit_outlined,
-                            size: 18, color: Color(0xFF94A3B8)),
-                        SizedBox(width: 8),
-                        Text('Edit Details'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'add_above',
-                    child: Row(
-                      children: [
-                        Icon(Icons.drive_folder_upload_outlined,
-                            size: 18, color: Color(0xFF38BDF8)),
-                        SizedBox(width: 8),
-                        Text('Add Level Above...'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuDivider(),
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Row(
-                      children: [
-                        Icon(Icons.delete_outline,
-                            size: 18, color: Colors.redAccent),
-                        SizedBox(width: 8),
-                        Text('Delete Location',
-                            style: TextStyle(color: Colors.redAccent)),
-                      ],
-                    ),
-                  ),
-                ],
               ),
             ],
           ),
@@ -1235,59 +1882,93 @@ class _StorageLocationDetailScreenState
                 error: (error, stackTrace) => const SizedBox(),
               ),
 
-              // 2. Responsive Canvas + Pinned Bottom Sliding Panel
+              // 2. Responsive Canvas (Desktop Dual-Pane Workspace vs Mobile Pinned Sliding Panel)
               Expanded(
-                child: Stack(
-                  children: [
-                    // Canvas (fills screen when drawing/editing, or fits above collapsed panel in view mode)
-                    Positioned.fill(
-                      bottom: _canvasMode == CanvasMode.view ? 56.0 : 0.0,
-                      child: Container(
-                        color: const Color(0xFF0B0F19),
-                        child: PolygonCanvasWidget(
-                          imageUrl: displayImageUrl,
-                          regions: location.regions,
-                          mode: _canvasMode,
-                          focusPolygon: focusPolygon,
-                          initialSnappingEnabled: _snappingEnabled,
-                          onSnappingChanged: (val) {
-                            setState(() => _snappingEnabled = val);
-                          },
-                          onRegionTapped: _onRegionTapped,
-                          onPolygonCompleted: (pts) => _handlePolygonCompleted(
-                            pts,
-                            location,
-                            childLocations,
-                            items,
-                          ),
-                          onCancelDrawing: () {
-                            // Cancelled current draft points - stay in edit mode ready for next action
-                          },
-                          onDeleteRegion: (reg) =>
-                              _handleDeleteRegion(reg, location),
-                          onRenameRegion: (reg, newLabel) =>
-                              _handleRenameRegion(reg, newLabel, location),
-                          onRegionUpdated: (reg) =>
-                              _handleRegionUpdated(reg, location),
-                          onSaveEditSession: () {
-                            setState(() {
-                              _canvasMode = CanvasMode.view;
-                              _isIdentifyingItems = false;
-                            });
-                          },
-                        ),
-                      ),
-                    ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isDesktop = constraints.maxWidth >= 850;
 
-                    // Pinned Bottom Sliding Panel - Visible only in normal view mode
-                    if (_canvasMode == CanvasMode.view)
-                      _buildPinnedSlidingPanel(
-                        location: location,
-                        childLocations: childLocations,
-                        items: items,
-                        selectedLib: selectedLib,
+                    final canvasWidget = PolygonCanvasWidget(
+                      imageUrl: displayImageUrl,
+                      regions: location.regions,
+                      mode: _canvasMode,
+                      focusPolygon: focusPolygon,
+                      initialSnappingEnabled: _snappingEnabled,
+                      newPolygonLabel: _isIdentifyingItems ? 'Draw Item' : 'Draw Storage',
+                      onSnappingChanged: (val) {
+                        setState(() => _snappingEnabled = val);
+                      },
+                      onRegionTapped: _onRegionTapped,
+                      onPolygonCompleted: (pts) => _handlePolygonCompleted(
+                        pts,
+                        location,
+                        childLocations,
+                        items,
                       ),
-                  ],
+                      onCancelDrawing: () {},
+                      onDeleteRegion: (reg) =>
+                          _handleDeleteRegion(reg, location),
+                      onRenameRegion: (reg, newLabel) =>
+                          _handleRenameRegion(reg, newLabel, location),
+                      onRegionUpdated: (reg) =>
+                          _handleRegionUpdated(reg, location),
+                      onSaveEditSession: () {
+                        setState(() {
+                          _canvasMode = CanvasMode.view;
+                          _isIdentifyingItems = false;
+                        });
+                      },
+                    );
+
+                    if (isDesktop) {
+                      // Desktop Layout: Side-by-side Dual Pane
+                      return Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              color: const Color(0xFF0B0F19),
+                              child: canvasWidget,
+                            ),
+                          ),
+                          Container(
+                            width: 380,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF0F172A),
+                              border: Border(
+                                left: BorderSide(color: Color(0xFF263352), width: 1.5),
+                              ),
+                            ),
+                            child: _buildDesktopInspectorPanel(
+                              location: location,
+                              childLocations: childLocations,
+                              items: items,
+                              selectedLib: selectedLib,
+                            ),
+                          ),
+                        ],
+                      );
+                    }
+
+                    // Mobile Layout (< 850px): Canvas with Pinned Sliding Bottom Sheet
+                    return Stack(
+                      children: [
+                        Positioned.fill(
+                          bottom: _canvasMode == CanvasMode.view ? 56.0 : 0.0,
+                          child: Container(
+                            color: const Color(0xFF0B0F19),
+                            child: canvasWidget,
+                          ),
+                        ),
+                        if (_canvasMode == CanvasMode.view)
+                          _buildPinnedSlidingPanel(
+                            location: location,
+                            childLocations: childLocations,
+                            items: items,
+                            selectedLib: selectedLib,
+                          ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ],

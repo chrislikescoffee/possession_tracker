@@ -443,34 +443,27 @@ class _StorageLocationTile extends ConsumerWidget {
                     ),
                   ),
 
-                  // Mapped Polygons Badge (Top-left)
-                  if (location.regions.isNotEmpty)
-                    Positioned(
-                      top: 8,
-                      left: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF6366F1).withValues(alpha: 0.9),
-                          borderRadius: BorderRadius.circular(6),
+                  // Storage Areas and Items Badges (Top-left on image)
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      children: [
+                        _StorageCountBadge(
+                          icon: Icons.folder_outlined,
+                          label: '$subAreaCount ${subAreaCount == 1 ? 'Area' : 'Areas'}',
+                          color: const Color(0xFF38BDF8),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.crop_square, size: 12, color: Colors.white),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${location.regions.length} Mapped',
-                              style: const TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
+                        _StorageCountBadge(
+                          icon: Icons.inventory_2_outlined,
+                          label: '$itemCount ${itemCount == 1 ? 'Item' : 'Items'}',
+                          color: const Color(0xFF10B981),
                         ),
-                      ),
+                      ],
                     ),
+                  ),
 
                   // Overflow Options Menu (Top-right)
                   Positioned(
@@ -602,33 +595,25 @@ class _StorageLocationCard extends ConsumerWidget {
                         ),
                       ),
                     ),
-                    if (location.regions.isNotEmpty)
-                      Positioned(
-                        bottom: 12,
-                        left: 16,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF6366F1).withValues(alpha: 0.85),
-                            borderRadius: BorderRadius.circular(6),
+                    Positioned(
+                      bottom: 10,
+                      left: 14,
+                      child: Row(
+                        children: [
+                          _StorageCountBadge(
+                            icon: Icons.folder_outlined,
+                            label: '$subAreaCount ${subAreaCount == 1 ? 'Area' : 'Areas'}',
+                            color: const Color(0xFF38BDF8),
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.crop_square, size: 14, color: Colors.white),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${location.regions.length} Polygons Mapped',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
+                          const SizedBox(width: 6),
+                          _StorageCountBadge(
+                            icon: Icons.inventory_2_outlined,
+                            label: '$itemCount ${itemCount == 1 ? 'Item' : 'Items'}',
+                            color: const Color(0xFF10B981),
                           ),
-                        ),
+                        ],
                       ),
+                    ),
                   ],
                 ),
               ),
@@ -684,8 +669,6 @@ class _StorageLocationCard extends ConsumerWidget {
                     ),
                   ),
                   _LocationMenuButton(location: location),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.chevron_right, color: Color(0xFF64748B)),
                 ],
               ),
             ),

@@ -23,6 +23,7 @@ class PolygonCanvasWidget extends StatefulWidget {
   final void Function(PolygonRegion region, String newLabel)? onRenameRegion;
   final void Function(PolygonRegion updatedRegion)? onRegionUpdated;
   final VoidCallback? onSaveEditSession;
+  final String? newPolygonLabel;
 
   const PolygonCanvasWidget({
     super.key,
@@ -41,6 +42,7 @@ class PolygonCanvasWidget extends StatefulWidget {
     this.onRenameRegion,
     this.onRegionUpdated,
     this.onSaveEditSession,
+    this.newPolygonLabel,
   });
 
   @override
@@ -233,10 +235,9 @@ class _PolygonCanvasWidgetState extends State<PolygonCanvasWidget>
 
     if (isDrawingMode) {
       if (_snappingEnabled) {
-        // 1. Vertex Snapping: collect all vertices in existing regions + previous draft points
+        // 1. Vertex Snapping: snap only to other existing regions (do not snap to points on the polygon being edited/drawn)
         final candidateVertices = <NormalizedPoint>[
           for (final reg in _activeRegions) ...reg.points,
-          ..._draftPoints,
         ];
 
         normalized = GeometryUtils.snapNormalizedToNearestVertex(
@@ -509,11 +510,12 @@ class _PolygonCanvasWidgetState extends State<PolygonCanvasWidget>
 
                               if (_snappingEnabled) {
                                 final region = _activeRegions[regionIdx];
+                                // Snap only to points of OTHER regions (do not snap to points on the polygon being edited)
                                 final candidateVertices = <NormalizedPoint>[
                                   for (int r = 0; r < _activeRegions.length; r++)
-                                    for (int p = 0; p < _activeRegions[r].points.length; p++)
-                                      if (r != regionIdx || p != _activeDragVertexIndex)
-                                        _activeRegions[r].points[p],
+                                    if (r != regionIdx)
+                                      for (final pt in _activeRegions[r].points)
+                                        pt,
                                 ];
 
                                 normalized = GeometryUtils.snapNormalizedToNearestVertex(
@@ -842,12 +844,15 @@ class _PolygonCanvasWidgetState extends State<PolygonCanvasWidget>
       );
     }
 
+    final labelText = widget.newPolygonLabel ?? 'New Polygon';
+    final isItem = labelText.toLowerCase().contains('item');
+
     return FloatingActionButton.extended(
       heroTag: 'add_polygon_fab',
       backgroundColor: const Color(0xFF6366F1),
       foregroundColor: Colors.white,
-      icon: const Icon(Icons.add, size: 20),
-      label: const Text('New Polygon', style: TextStyle(fontWeight: FontWeight.bold)),
+      icon: Icon(isItem ? Icons.inventory_2_outlined : Icons.crop_free, size: 20),
+      label: Text(labelText, style: const TextStyle(fontWeight: FontWeight.bold)),
       onPressed: () {
         setState(() {
           _isDrawingActive = true;
