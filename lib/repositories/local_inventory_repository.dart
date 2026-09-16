@@ -21,7 +21,8 @@ class LocalInventoryRepository implements InventoryRepository {
 
   @override
   Future<List<Library>> getLibraries() async {
-    return db.libraries;
+    final seenIds = <String>{};
+    return db.libraries.where((l) => seenIds.add(l.id)).toList();
   }
 
   @override
@@ -72,8 +73,10 @@ class LocalInventoryRepository implements InventoryRepository {
     String libraryId, {
     String? parentId,
   }) async {
+    final seenIds = <String>{};
     return db.locations.where((loc) {
       if (loc.libraryId != libraryId) return false;
+      if (!seenIds.add(loc.id)) return false;
       if (parentId == null) return loc.parentId == null || loc.parentId!.isEmpty;
       return loc.parentId == parentId;
     }).toList()
@@ -82,7 +85,10 @@ class LocalInventoryRepository implements InventoryRepository {
 
   @override
   Future<List<StorageLocation>> getAllStorageLocations(String libraryId) async {
-    return db.locations.where((loc) => loc.libraryId == libraryId).toList()
+    final seenIds = <String>{};
+    return db.locations
+        .where((loc) => loc.libraryId == libraryId && seenIds.add(loc.id))
+        .toList()
       ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
   }
 
@@ -204,7 +210,9 @@ class LocalInventoryRepository implements InventoryRepository {
     String? storageLocationId,
     String? searchQuery,
   }) async {
-    var result = db.items.where((it) => it.libraryId == libraryId).toList();
+    final seenIds = <String>{};
+    var result =
+        db.items.where((it) => it.libraryId == libraryId && seenIds.add(it.id)).toList();
 
     if (storageLocationId != null) {
       result = result.where((it) => it.storageLocationId == storageLocationId).toList();

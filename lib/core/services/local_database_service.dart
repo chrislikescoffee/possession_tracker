@@ -117,39 +117,77 @@ class LocalDatabaseService {
     _lendingRecords.clear();
     _syncQueue.clear();
 
+    bool hadDuplicates = false;
+
     if (data['libraries'] is List) {
+      final seen = <String>{};
       for (final json in data['libraries']) {
-        _libraries.add(Library.fromJson(json as Map<String, dynamic>));
+        final lib = Library.fromJson(json as Map<String, dynamic>);
+        if (seen.add(lib.id)) {
+          _libraries.add(lib);
+        } else {
+          hadDuplicates = true;
+        }
       }
     }
 
     if (data['locations'] is List) {
+      final seen = <String>{};
       for (final json in data['locations']) {
-        _locations.add(StorageLocation.fromJson(json as Map<String, dynamic>));
+        final loc = StorageLocation.fromJson(json as Map<String, dynamic>);
+        if (seen.add(loc.id)) {
+          _locations.add(loc);
+        } else {
+          hadDuplicates = true;
+        }
       }
     }
 
     if (data['items'] is List) {
+      final seen = <String>{};
       for (final json in data['items']) {
-        _items.add(Item.fromJson(json as Map<String, dynamic>));
+        final item = Item.fromJson(json as Map<String, dynamic>);
+        if (seen.add(item.id)) {
+          _items.add(item);
+        } else {
+          hadDuplicates = true;
+        }
       }
     }
 
     if (data['item_types'] is List) {
+      final seen = <String>{};
       for (final json in data['item_types']) {
-        _itemTypes.add(ItemType.fromJson(json as Map<String, dynamic>));
+        final it = ItemType.fromJson(json as Map<String, dynamic>);
+        if (seen.add(it.id)) {
+          _itemTypes.add(it);
+        } else {
+          hadDuplicates = true;
+        }
       }
     }
 
     if (data['lending_records'] is List) {
+      final seen = <String>{};
       for (final json in data['lending_records']) {
-        _lendingRecords.add(LendingRecord.fromJson(json as Map<String, dynamic>));
+        final lr = LendingRecord.fromJson(json as Map<String, dynamic>);
+        if (seen.add(lr.id)) {
+          _lendingRecords.add(lr);
+        } else {
+          hadDuplicates = true;
+        }
       }
     }
 
     if (data['sync_queue'] is List) {
+      final seen = <String>{};
       for (final json in data['sync_queue']) {
-        _syncQueue.add(SyncQueueItem.fromJson(json as Map<String, dynamic>));
+        final q = SyncQueueItem.fromJson(json as Map<String, dynamic>);
+        if (seen.add(q.id)) {
+          _syncQueue.add(q);
+        } else {
+          hadDuplicates = true;
+        }
       }
     }
 
@@ -166,6 +204,11 @@ class LocalDatabaseService {
 
     if (data['last_synced_at'] != null) {
       _lastSyncedAt = DateTime.tryParse(data['last_synced_at'] as String);
+    }
+
+    // Automatically clean up persisted storage if duplicates were found
+    if (hadDuplicates) {
+      saveToDisk();
     }
   }
 
@@ -362,6 +405,13 @@ class LocalDatabaseService {
   // --- Seed Data on First Launch ---
 
   void _seedInitialData() {
+    _libraries.clear();
+    _locations.clear();
+    _items.clear();
+    _itemTypes.clear();
+    _lendingRecords.clear();
+    _syncQueue.clear();
+
     final now = DateTime.now();
     const defaultLibId = 'lib-workshop-01';
 
