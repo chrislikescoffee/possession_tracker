@@ -16,9 +16,9 @@ class AuthNotifier extends Notifier<User?> {
 
         if (user != null) {
           ref.read(syncStatusProvider.notifier).startRealtime();
-          // Automatically trigger sync when user logs in or session refreshes
+          // Automatically trigger full sync when user logs in or session refreshes
           if (!wasLoggedIn || data.event == AuthChangeEvent.signedIn) {
-            ref.read(syncStatusProvider.notifier).syncNow();
+            ref.read(syncStatusProvider.notifier).syncNow(force: true);
           }
         } else {
           ref.read(syncStatusProvider.notifier).stopRealtime();
@@ -29,7 +29,7 @@ class AuthNotifier extends Notifier<User?> {
       if (current != null) {
         Future.microtask(() {
           ref.read(syncStatusProvider.notifier).startRealtime();
-          ref.read(syncStatusProvider.notifier).syncNow();
+          ref.read(syncStatusProvider.notifier).syncNow(force: true);
         });
       }
       return current;
@@ -49,7 +49,7 @@ class AuthNotifier extends Notifier<User?> {
     state = res.user;
     if (res.user != null) {
       ref.read(syncStatusProvider.notifier).startRealtime();
-      await ref.read(syncStatusProvider.notifier).syncNow();
+      await ref.read(syncStatusProvider.notifier).syncNow(force: true);
     }
   }
 

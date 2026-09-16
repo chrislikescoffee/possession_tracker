@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/library_model.dart';
 import 'repository_provider.dart';
 
@@ -20,10 +21,25 @@ class SelectedLibraryNotifier extends AsyncNotifier<Library?> {
   Future<Library?> build() async {
     final repo = ref.watch(repositoryProvider);
     final list = await repo.getLibraries();
-    if (list.isNotEmpty) {
-      return list.first;
+    if (list.isEmpty) {
+      return repo.createLibrary('My Primary Library');
     }
-    return repo.createLibrary('My Primary Library');
+
+    // When signed in, prioritize user's cloud library over local seed demo
+    try {
+      if (Supabase.instance.isInitialized) {
+        final currentUser = Supabase.instance.client.auth.currentUser;
+        if (currentUser != null) {
+          final owned = list.where((l) => l.ownerId == currentUser.id).firstOrNull;
+          if (owned != null) return owned;
+
+          final nonSeed = list.where((l) => l.id != 'lib-workshop-01').firstOrNull;
+          if (nonSeed != null) return nonSeed;
+        }
+      }
+    } catch (_) {}
+
+    return list.first;
   }
 
   void selectLibrary(Library library) {

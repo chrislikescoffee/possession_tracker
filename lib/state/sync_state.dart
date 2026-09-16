@@ -117,7 +117,7 @@ class SyncStatusNotifier extends Notifier<SyncStatusInfo> {
     }
   }
 
-  Future<void> syncNow({bool force = false}) async {
+  Future<SyncStatusInfo> syncNow({bool force = false}) async {
     state = state.copyWith(state: SyncState.syncing);
     final syncService = ref.read(cloudSyncServiceProvider);
     final result = await syncService.syncNow(force: force);
@@ -132,6 +132,7 @@ class SyncStatusNotifier extends Notifier<SyncStatusInfo> {
       ref.invalidate(libraryItemsProvider);
       ref.invalidate(itemTypesProvider);
     }
+    return result;
   }
 
   Future<void> saveCredentials({

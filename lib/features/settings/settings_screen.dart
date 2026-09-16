@@ -803,13 +803,17 @@ class SettingsScreen extends ConsumerWidget {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      if (currentUser == null)
-                        OutlinedButton.icon(
-                          icon: const Icon(Icons.person_add, size: 16),
-                          label: const Text('Create Account', style: TextStyle(fontSize: 12)),
+                      if (currentUser == null) ...[
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF6366F1),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          ),
+                          icon: const Icon(Icons.login, size: 16),
+                          label: const Text('Sign In to Sync', style: TextStyle(fontSize: 12)),
                           onPressed: () => _showAuthDialog(context, ref),
-                        )
-                      else
+                        ),
+                      ] else ...[
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF10B981),
@@ -827,8 +831,66 @@ class SettingsScreen extends ConsumerWidget {
                           ),
                           onPressed: syncStatus.state == SyncState.syncing
                               ? null
-                              : () => ref.read(syncStatusProvider.notifier).syncNow(),
+                              : () async {
+                                  final result = await ref
+                                      .read(syncStatusProvider.notifier)
+                                      .syncNow(force: true);
+                                  if (context.mounted) {
+                                    if (result.state == SyncState.error) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          backgroundColor: Colors.redAccent,
+                                          content: Text(result.errorMessage ?? 'Sync failed.'),
+                                        ),
+                                      );
+                                    } else {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          backgroundColor: Color(0xFF10B981),
+                                          content: Text('Cloud sync completed successfully!'),
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
                         ),
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.cloud_upload_outlined, size: 16),
+                          label: const Text('Upload Local Data', style: TextStyle(fontSize: 12)),
+                          onPressed: syncStatus.state == SyncState.syncing
+                              ? null
+                              : () async {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Uploading all local inventory to the cloud...'),
+                                    ),
+                                  );
+                                  final syncService = ref.read(cloudSyncServiceProvider);
+                                  await syncService.pushAllLocalData();
+                                  final res = await ref
+                                      .read(syncStatusProvider.notifier)
+                                      .syncNow(force: true);
+                                  if (context.mounted) {
+                                    if (res.state == SyncState.error) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          backgroundColor: Colors.redAccent,
+                                          content: Text(res.errorMessage ?? 'Upload failed.'),
+                                        ),
+                                      );
+                                    } else {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          backgroundColor: Color(0xFF10B981),
+                                          content: Text('Local inventory uploaded and synced!'),
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                        ),
+                      ],
                     ],
                   ),
                 ],

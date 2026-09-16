@@ -230,16 +230,17 @@ class CloudSyncService {
         await db.removeSyncQueueItems(syncedQueueIds);
       }
 
+      // If force is requested, also ensure all local libraries, locations, items, and types are pushed
+      if (force) {
+        await pushAllLocalData();
+      }
+
       // --- Step 2: Pull Remote Changes (scanned by RLS to current user) ---
       final isIncremental = !force && db.lastSyncedAt != null;
       final sinceIso = db.lastSyncedAt?.toIso8601String();
 
       try {
-        var libQuery = _client!.from('libraries').select();
-        if (isIncremental && sinceIso != null) {
-          libQuery = libQuery.gte('created_at', sinceIso);
-        }
-        final remoteLibs = await libQuery;
+        final remoteLibs = await _client!.from('libraries').select();
         for (final json in (remoteLibs as List)) {
           final remoteLib = Library.fromJson(json as Map<String, dynamic>);
           // Skip if user intentionally deleted it locally without deleting online backup
@@ -249,36 +250,37 @@ class CloudSyncService {
         }
       } catch (libPullError) {
         debugPrint('Pull libraries error: $libPullError');
+        return SyncStatusInfo(
+          state: SyncState.error,
+          errorMessage: 'Error pulling libraries: $libPullError',
+          pendingCount: db.syncQueue.length,
+          lastSyncedAt: db.lastSyncedAt,
+        );
       }
 
       for (final lib in db.libraries) {
         if (db.locallyDeletedLibraryIds.contains(lib.id)) continue;
         try {
-          // Pull storage locations
-          var locsQuery = _client!
+          // Pull storage locations - always fetch all for intact hierarchy
+          final locsResponse = await _client!
               .from('storage_locations')
               .select()
               .eq('library_id', lib.id);
-          if (isIncremental && sinceIso != null) {
-            locsQuery = locsQuery.gte('created_at', sinceIso);
-          }
-          final locsResponse = await locsQuery;
           for (final json in (locsResponse as List)) {
             final remoteLoc = StorageLocation.fromJson(json as Map<String, dynamic>);
             await db.upsertLocation(remoteLoc, enqueueSync: false);
           }
 
-          // Pull items
+          // Pull items - only incremental if we already have local items for this library
+          final hasLocalItems = db.items.any((it) => it.libraryId == lib.id);
           var itemsQuery = _client!
               .from('items')
               .select()
               .eq('library_id', lib.id);
-          if (isIncremental && sinceIso != null) {
+          if (isIncremental && sinceIso != null && hasLocalItems) {
             try {
               itemsQuery = itemsQuery.gte('updated_at', sinceIso);
-            } catch (_) {
-              itemsQuery = itemsQuery.gte('created_at', sinceIso);
-            }
+            } catch (_) {}
           }
           final itemsResponse = await itemsQuery;
           for (final json in (itemsResponse as List)) {
@@ -287,20 +289,22 @@ class CloudSyncService {
           }
 
           // Pull item types
-          var typesQuery = _client!
+          final typesResponse = await _client!
               .from('item_types')
               .select()
               .eq('library_id', lib.id);
-          if (isIncremental && sinceIso != null) {
-            typesQuery = typesQuery.gte('created_at', sinceIso);
-          }
-          final typesResponse = await typesQuery;
           for (final json in (typesResponse as List)) {
             final remoteType = ItemType.fromJson(json as Map<String, dynamic>);
             await db.upsertItemType(remoteType, enqueueSync: false);
           }
         } catch (pullError) {
           debugPrint('Pull error for library ${lib.name}: $pullError');
+          return SyncStatusInfo(
+            state: SyncState.error,
+            errorMessage: 'Error pulling data for ${lib.name}: $pullError',
+            pendingCount: db.syncQueue.length,
+            lastSyncedAt: db.lastSyncedAt,
+          );
         }
       }
 
@@ -320,6 +324,57 @@ class CloudSyncService {
         pendingCount: db.syncQueue.length,
         lastSyncedAt: db.lastSyncedAt,
       );
+    }
+  }
+
+  /// Uploads all local libraries, storage locations, items, and item types to Supabase
+  Future<void> pushAllLocalData() async {
+    final hasClient = await initializeClient();
+    if (!hasClient || _client == null) return;
+    final currentUser = _client!.auth.currentUser;
+    if (currentUser == null) return;
+
+    for (final lib in db.libraries) {
+      if (db.locallyDeletedLibraryIds.contains(lib.id)) continue;
+      try {
+        final libPayload = lib.toJson();
+        libPayload['owner_id'] = currentUser.id;
+        await _client!.from('libraries').upsert(libPayload);
+
+        // Locations
+        final locs = db.locations.where((l) => l.libraryId == lib.id);
+        for (final loc in locs) {
+          final locPayload = loc.toJson();
+          if (locPayload['image_url'] != null) {
+            locPayload['image_url'] = await _uploadBase64ImageIfPresent(
+              locPayload['image_url'] as String?,
+              currentUser.id,
+            );
+          }
+          await _client!.from('storage_locations').upsert(locPayload);
+        }
+
+        // Items
+        final items = db.items.where((i) => i.libraryId == lib.id);
+        for (final item in items) {
+          final itemPayload = item.toJson();
+          if (itemPayload['primary_image_url'] != null) {
+            itemPayload['primary_image_url'] = await _uploadBase64ImageIfPresent(
+              itemPayload['primary_image_url'] as String?,
+              currentUser.id,
+            );
+          }
+          await _client!.from('items').upsert(itemPayload);
+        }
+
+        // Item Types
+        final types = db.itemTypes.where((t) => t.libraryId == lib.id);
+        for (final t in types) {
+          await _client!.from('item_types').upsert(t.toJson());
+        }
+      } catch (e) {
+        debugPrint('Error pushing all local data for ${lib.name}: $e');
+      }
     }
   }
 
