@@ -95,7 +95,10 @@ class SyncStatusNotifier extends Notifier<SyncStatusInfo> {
         }
 
         ref.invalidate(allStorageLocationsProvider);
-        ref.invalidate(storageLocationsProvider(null));
+        ref.invalidate(storageLocationsProvider);
+        ref.invalidate(storageLocationDetailProvider);
+        ref.invalidate(locationBreadcrumbsProvider);
+        ref.invalidate(locationItemsProvider);
         ref.invalidate(libraryItemsProvider);
         ref.invalidate(itemTypesProvider);
       },
@@ -161,7 +164,10 @@ class SyncStatusNotifier extends Notifier<SyncStatusInfo> {
       }
 
       ref.invalidate(allStorageLocationsProvider);
-      ref.invalidate(storageLocationsProvider(null));
+      ref.invalidate(storageLocationsProvider);
+      ref.invalidate(storageLocationDetailProvider);
+      ref.invalidate(locationBreadcrumbsProvider);
+      ref.invalidate(locationItemsProvider);
       ref.invalidate(libraryItemsProvider);
       ref.invalidate(itemTypesProvider);
     }

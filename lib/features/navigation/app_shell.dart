@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../models/sync_model.dart';
+import '../../state/auth_state.dart';
 import '../../state/library_state.dart';
+import '../../state/sync_state.dart';
 
 class AppShell extends ConsumerWidget {
   final Widget child;
@@ -42,6 +45,9 @@ class AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedIndex = _calculateSelectedIndex(context);
     final quotaAsync = ref.watch(libraryQuotaProvider);
+    // Keep auth state and cloud sync active continuously across all screens
+    ref.watch(authProvider);
+    final syncStatus = ref.watch(syncStatusProvider);
     final isWide = MediaQuery.of(context).size.width >= 800;
 
     return Scaffold(
@@ -86,36 +92,44 @@ class AppShell extends ConsumerWidget {
                   alignment: Alignment.bottomCenter,
                   child: Padding(
                     padding: const EdgeInsets.only(bottom: 16),
-                    child: quotaAsync.when(
-                      data: (quota) => Tooltip(
-                        message: '${quota.current}/${quota.max} items used',
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: quota.current >= quota.max
-                                ? Colors.red.withOpacity(0.2)
-                                : const Color(0xFF1E293B),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: quota.current >= quota.max
-                                  ? Colors.red
-                                  : const Color(0xFF334155),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Cloud sync indicator
+                        _buildSyncIndicator(context, ref, syncStatus),
+                        const SizedBox(height: 8),
+                        quotaAsync.when(
+                          data: (quota) => Tooltip(
+                            message: '${quota.current}/${quota.max} items used',
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: quota.current >= quota.max
+                                    ? Colors.red.withOpacity(0.2)
+                                    : const Color(0xFF1E293B),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: quota.current >= quota.max
+                                      ? Colors.red
+                                      : const Color(0xFF334155),
+                                ),
+                              ),
+                              child: Text(
+                                '${quota.current}/${quota.max}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: quota.current >= quota.max
+                                      ? Colors.redAccent
+                                      : const Color(0xFF06B6D4),
+                                ),
+                              ),
                             ),
                           ),
-                          child: Text(
-                            '${quota.current}/${quota.max}',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: quota.current >= quota.max
-                                  ? Colors.redAccent
-                                  : const Color(0xFF06B6D4),
-                            ),
-                          ),
+                          loading: () => const SizedBox(),
+                          error: (_, __) => const SizedBox(),
                         ),
-                      ),
-                      loading: () => const SizedBox(),
-                      error: (_, __) => const SizedBox(),
+                      ],
                     ),
                   ),
                 ),
@@ -188,6 +202,72 @@ class AppShell extends ConsumerWidget {
                 ),
               ],
             ),
+    );
+  }
+
+  Widget _buildSyncIndicator(BuildContext context, WidgetRef ref, SyncStatusInfo syncStatus) {
+    IconData icon;
+    Color color;
+    String tooltip;
+
+    switch (syncStatus.state) {
+      case SyncState.syncing:
+        icon = Icons.sync;
+        color = const Color(0xFF818CF8);
+        tooltip = 'Syncing with cloud...';
+        break;
+      case SyncState.synced:
+        icon = Icons.cloud_done_outlined;
+        color = const Color(0xFF10B981);
+        tooltip = 'Cloud synced. Tap to force refresh.';
+        break;
+      case SyncState.pendingSync:
+        icon = Icons.cloud_upload_outlined;
+        color = const Color(0xFFF59E0B);
+        tooltip = '${syncStatus.pendingCount} pending change(s). Tap to sync now.';
+        break;
+      case SyncState.error:
+        icon = Icons.cloud_off_outlined;
+        color = const Color(0xFFEF4444);
+        tooltip = 'Sync error: ${syncStatus.errorMessage ?? 'Tap to retry'}';
+        break;
+      case SyncState.offline:
+      case SyncState.notConfigured:
+        icon = Icons.cloud_queue_outlined;
+        color = const Color(0xFF64748B);
+        tooltip = 'Sign in via Settings to enable cloud sync.';
+        break;
+    }
+
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () {
+          ref.read(syncStatusProvider.notifier).syncNow(force: true);
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: color.withOpacity(0.35)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: color),
+              if (syncStatus.state == SyncState.syncing) ...[
+                const SizedBox(width: 4),
+                Text(
+                  'Syncing',
+                  style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

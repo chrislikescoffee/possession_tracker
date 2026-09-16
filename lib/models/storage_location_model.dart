@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'polygon_region.dart';
 
 /// Represents a physical or conceptual storage node in an arbitrary-depth hierarchy
@@ -29,6 +30,23 @@ class StorageLocation {
   bool get hasImage => imageUrl != null && imageUrl!.isNotEmpty;
 
   factory StorageLocation.fromJson(Map<String, dynamic> json) {
+    dynamic rawCoords = json['polygon_coordinates'];
+    if (rawCoords is String && rawCoords.isNotEmpty) {
+      try {
+        rawCoords = jsonDecode(rawCoords);
+      } catch (_) {}
+    }
+    final regionsList = <PolygonRegion>[];
+    if (rawCoords is List) {
+      for (final r in rawCoords) {
+        if (r is Map) {
+          try {
+            regionsList.add(PolygonRegion.fromJson(Map<String, dynamic>.from(r)));
+          } catch (_) {}
+        }
+      }
+    }
+
     return StorageLocation(
       id: json['id'] as String,
       libraryId: json['library_id'] as String,
@@ -36,9 +54,7 @@ class StorageLocation {
       name: json['name'] as String,
       description: json['description'] as String?,
       imageUrl: json['image_url'] as String?,
-      regions: (json['polygon_coordinates'] as List<dynamic>? ?? [])
-          .map((r) => PolygonRegion.fromJson(r as Map<String, dynamic>))
-          .toList(),
+      regions: regionsList,
       sortOrder: json['sort_order'] as int? ?? 0,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)

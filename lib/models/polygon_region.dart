@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:ui';
 
 /// Represents a single normalized point (0.0 to 1.0) on an image
@@ -9,8 +10,8 @@ class NormalizedPoint {
 
   factory NormalizedPoint.fromJson(Map<String, dynamic> json) {
     return NormalizedPoint(
-      x: (json['x'] as num).toDouble(),
-      y: (json['y'] as num).toDouble(),
+      x: (json['x'] as num?)?.toDouble() ?? 0.0,
+      y: (json['y'] as num?)?.toDouble() ?? 0.0,
     );
   }
 
@@ -54,15 +55,37 @@ class PolygonRegion {
   bool get isLinkedToItem => targetItemId != null && targetItemId!.isNotEmpty;
 
   factory PolygonRegion.fromJson(Map<String, dynamic> json) {
+    dynamic rawPoints = json['points'];
+    if (rawPoints is String && rawPoints.isNotEmpty) {
+      try {
+        rawPoints = jsonDecode(rawPoints);
+      } catch (_) {}
+    }
+    final pointsList = <NormalizedPoint>[];
+    if (rawPoints is List) {
+      for (final p in rawPoints) {
+        if (p is Map) {
+          try {
+            pointsList.add(NormalizedPoint.fromJson(Map<String, dynamic>.from(p)));
+          } catch (_) {}
+        }
+      }
+    }
+
+    final rawColor = json['color_hex'];
+    final parsedColor = rawColor is int
+        ? rawColor
+        : (rawColor is String
+            ? int.tryParse(rawColor) ?? 0xFF3B82F6
+            : 0xFF3B82F6);
+
     return PolygonRegion(
-      id: json['id'] as String,
+      id: json['id'] as String? ?? '',
       label: json['label'] as String? ?? '',
-      points: (json['points'] as List<dynamic>? ?? [])
-          .map((p) => NormalizedPoint.fromJson(p as Map<String, dynamic>))
-          .toList(),
+      points: pointsList,
       targetLocationId: json['target_location_id'] as String?,
       targetItemId: json['target_item_id'] as String?,
-      colorHex: json['color_hex'] as int? ?? 0xFF3B82F6,
+      colorHex: parsedColor,
     );
   }
 

@@ -213,7 +213,11 @@ class CloudSyncService {
 
             case SyncEntityType.itemType:
               if (item.operation == SyncOperation.upsert && item.payload != null) {
-                await _client!.from('item_types').upsert(item.payload!);
+                final payload = Map<String, dynamic>.from(item.payload!);
+                payload.remove('color_hex');
+                payload.remove('custom_field_definitions');
+                payload.remove('icon_name');
+                await _client!.from('item_types').upsert(payload);
               } else if (item.operation == SyncOperation.delete) {
                 await _client!.from('item_types').delete().eq('id', item.entityId);
               }
@@ -417,7 +421,11 @@ class CloudSyncService {
         // Item Types
         final types = db.itemTypes.where((t) => t.libraryId == lib.id);
         for (final t in types) {
-          await _client!.from('item_types').upsert(t.toJson());
+          final payload = t.toJson();
+          payload.remove('color_hex');
+          payload.remove('custom_field_definitions');
+          payload.remove('icon_name');
+          await _client!.from('item_types').upsert(payload);
         }
       } catch (e) {
         debugPrint('Error pushing all local data for ${lib.name}: $e');

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import '../core/constants/app_constants.dart';
 import 'polygon_region.dart';
 
@@ -21,7 +22,7 @@ class Item {
   final String? temporaryLocationNote;
   final String? temporaryLocationId;
 
-  // Status: 'stored', 'relocated', 'lent'
+  // Status lifecycle: stored, in_use, lent, lost
   final String status;
 
   final DateTime createdAt;
@@ -46,6 +47,8 @@ class Item {
     required this.updatedAt,
   });
 
+  bool get isStored => status == AppConstants.itemStatusStored;
+  bool get isRelocated => status == AppConstants.itemStatusRelocated;
   bool get isLentOut => status == AppConstants.itemStatusLent;
   bool get hasPolygon => polygonPoints.length >= 3;
   String get effectiveItemTypeName => (itemTypeName != null && itemTypeName!.isNotEmpty)
@@ -53,6 +56,23 @@ class Item {
       : 'Generic Item';
 
   factory Item.fromJson(Map<String, dynamic> json) {
+    dynamic rawPoly = json['polygon_coordinates'];
+    if (rawPoly is String && rawPoly.isNotEmpty) {
+      try {
+        rawPoly = jsonDecode(rawPoly);
+      } catch (_) {}
+    }
+    final polyList = <NormalizedPoint>[];
+    if (rawPoly is List) {
+      for (final p in rawPoly) {
+        if (p is Map) {
+          try {
+            polyList.add(NormalizedPoint.fromJson(Map<String, dynamic>.from(p)));
+          } catch (_) {}
+        }
+      }
+    }
+
     return Item(
       id: json['id'] as String,
       libraryId: json['library_id'] as String,
@@ -62,9 +82,7 @@ class Item {
       name: json['name'] as String,
       description: json['description'] as String?,
       primaryImageUrl: json['primary_image_url'] as String?,
-      polygonPoints: (json['polygon_coordinates'] as List<dynamic>? ?? [])
-          .map((p) => NormalizedPoint.fromJson(p as Map<String, dynamic>))
-          .toList(),
+      polygonPoints: polyList,
       customFields: (json['custom_fields'] as Map<String, dynamic>?) ?? {},
       isTemporarilyRelocated: json['is_temporarily_relocated'] as bool? ?? false,
       temporaryLocationNote: json['temporary_location_note'] as String?,
