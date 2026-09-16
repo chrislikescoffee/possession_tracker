@@ -24,13 +24,13 @@ final libraryItemsProvider = FutureProvider<List<Item>>((ref) async {
   return repo.getItems(library.id, searchQuery: query);
 });
 
-/// Items located directly in a specific storage location
+/// Items located in a specific storage location or any of its sub-storage areas
 final locationItemsProvider =
     FutureProvider.family<List<Item>, String>((ref, locationId) async {
   final library = ref.watch(selectedLibraryProvider).value;
   if (library == null) return [];
   final repo = ref.watch(repositoryProvider);
-  return repo.getItems(library.id, storageLocationId: locationId);
+  return repo.getItems(library.id, storageLocationId: locationId, includeSubLocations: true);
 });
 
 /// Single item detail provider

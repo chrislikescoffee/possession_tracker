@@ -323,9 +323,9 @@ class _StorageTreeScreenState extends ConsumerState<StorageTreeScreen> {
 
                 return RefreshIndicator(
                   onRefresh: () async {
-                    ref.refresh(storageLocationsProvider(null));
-                    ref.refresh(allStorageLocationsProvider);
-                    ref.refresh(libraryItemsProvider);
+                    ref.invalidate(storageLocationsProvider(null));
+                    ref.invalidate(allStorageLocationsProvider);
+                    ref.invalidate(libraryItemsProvider);
                   },
                   child: _isGridView
                       ? GridView.builder(
@@ -393,8 +393,6 @@ class _StorageLocationTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final hasImage = location.imageUrl != null && location.imageUrl!.isNotEmpty;
-
     return Card(
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
@@ -442,41 +440,6 @@ class _StorageLocationTile extends ConsumerWidget {
                       ),
                     ),
                   ),
-
-                  // Storage Areas and Items Badges (Top-left on image)
-                  Positioned(
-                    top: 8,
-                    left: 8,
-                    child: Wrap(
-                      spacing: 4,
-                      runSpacing: 4,
-                      children: [
-                        _StorageCountBadge(
-                          icon: Icons.folder_outlined,
-                          label: '$subAreaCount ${subAreaCount == 1 ? 'Area' : 'Areas'}',
-                          color: const Color(0xFF38BDF8),
-                        ),
-                        _StorageCountBadge(
-                          icon: Icons.inventory_2_outlined,
-                          label: '$itemCount ${itemCount == 1 ? 'Item' : 'Items'}',
-                          color: const Color(0xFF10B981),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Overflow Options Menu (Top-right)
-                  Positioned(
-                    top: 4,
-                    right: 4,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.45),
-                        shape: BoxShape.circle,
-                      ),
-                      child: _LocationMenuButton(location: location),
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -502,19 +465,19 @@ class _StorageLocationTile extends ConsumerWidget {
                             color: Colors.white,
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          location.description ?? 'No description provided',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: location.description != null
-                                ? const Color(0xFF94A3B8)
-                                : const Color(0xFF64748B),
-                            fontStyle: location.description != null ? FontStyle.normal : FontStyle.italic,
+                        if (location.description != null &&
+                            location.description!.trim().isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            location.description!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF94A3B8),
+                            ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
 
@@ -595,25 +558,6 @@ class _StorageLocationCard extends ConsumerWidget {
                         ),
                       ),
                     ),
-                    Positioned(
-                      bottom: 10,
-                      left: 14,
-                      child: Row(
-                        children: [
-                          _StorageCountBadge(
-                            icon: Icons.folder_outlined,
-                            label: '$subAreaCount ${subAreaCount == 1 ? 'Area' : 'Areas'}',
-                            color: const Color(0xFF38BDF8),
-                          ),
-                          const SizedBox(width: 6),
-                          _StorageCountBadge(
-                            icon: Icons.inventory_2_outlined,
-                            label: '$itemCount ${itemCount == 1 ? 'Item' : 'Items'}',
-                            color: const Color(0xFF10B981),
-                          ),
-                        ],
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -640,7 +584,8 @@ class _StorageLocationCard extends ConsumerWidget {
                           location.name,
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                         ),
-                        if (location.description != null) ...[
+                        if (location.description != null &&
+                            location.description!.trim().isNotEmpty) ...[
                           const SizedBox(height: 2),
                           Text(
                             location.description!,
@@ -668,7 +613,6 @@ class _StorageLocationCard extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  _LocationMenuButton(location: location),
                 ],
               ),
             ),
@@ -715,92 +659,6 @@ class _StorageCountBadge extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// Reusable Location Menu button (Edit, Delete)
-class _LocationMenuButton extends ConsumerWidget {
-  final StorageLocation location;
-
-  const _LocationMenuButton({required this.location});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return PopupMenuButton<String>(
-      icon: const Icon(Icons.more_vert, size: 18, color: Colors.white70),
-      onSelected: (val) async {
-        if (val == 'edit') {
-          final updated = await showDialog<StorageLocation>(
-            context: context,
-            builder: (ctx) => AddEditLocationDialog(
-              libraryId: location.libraryId,
-              locationToEdit: location,
-            ),
-          );
-          if (updated != null) {
-            final repo = ref.read(repositoryProvider);
-            await repo.saveStorageLocation(updated);
-            ref.invalidate(storageLocationsProvider(null));
-            ref.invalidate(storageLocationsProvider(location.parentId));
-            ref.invalidate(allStorageLocationsProvider);
-            ref.invalidate(storageLocationDetailProvider(location.id));
-          }
-        } else if (val == 'delete') {
-          final confirm = await showDialog<bool>(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              backgroundColor: const Color(0xFF1E293B),
-              title: const Text('Delete Location?'),
-              content: Text(
-                'Are you sure you want to delete "${location.name}" and all child sub-containers?',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(false),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
-                  onPressed: () => Navigator.of(ctx).pop(true),
-                  child: const Text('Delete'),
-                ),
-              ],
-            ),
-          );
-          if (confirm == true) {
-            final repo = ref.read(repositoryProvider);
-            await repo.deleteStorageLocation(location.id);
-            ref.invalidate(storageLocationsProvider(null));
-            ref.invalidate(storageLocationsProvider(location.parentId));
-            ref.invalidate(allStorageLocationsProvider);
-            ref.invalidate(storageLocationDetailProvider(location.id));
-          }
-        }
-      },
-      itemBuilder: (ctx) => [
-        const PopupMenuItem(
-          value: 'edit',
-          child: Row(
-            children: [
-              Icon(Icons.edit_outlined, size: 18, color: Color(0xFF94A3B8)),
-              SizedBox(width: 8),
-              Text('Edit Details'),
-            ],
-          ),
-        ),
-        const PopupMenuDivider(),
-        const PopupMenuItem(
-          value: 'delete',
-          child: Row(
-            children: [
-              Icon(Icons.delete_outline, size: 18, color: Color(0xFFEF4444)),
-              SizedBox(width: 8),
-              Text('Delete Location', style: TextStyle(color: Color(0xFFEF4444))),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

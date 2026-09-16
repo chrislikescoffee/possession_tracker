@@ -159,7 +159,12 @@ class SupabaseInventoryRepository implements InventoryRepository {
   }
 
   @override
-  Future<List<Item>> getItems(String libraryId, {String? storageLocationId, String? searchQuery}) async {
+  Future<List<Item>> getItems(
+    String libraryId, {
+    String? storageLocationId,
+    String? searchQuery,
+    bool includeSubLocations = false,
+  }) async {
     var query = client.from('items').select().eq('library_id', libraryId);
     if (storageLocationId != null) {
       query = query.eq('storage_location_id', storageLocationId);

@@ -476,11 +476,36 @@ class MockInventoryRepository implements InventoryRepository {
 
   // --- Item Operations ---
   @override
-  Future<List<Item>> getItems(String libraryId, {String? storageLocationId, String? searchQuery}) async {
+  Future<List<Item>> getItems(
+    String libraryId, {
+    String? storageLocationId,
+    String? searchQuery,
+    bool includeSubLocations = false,
+  }) async {
+    final targetLocationIds = storageLocationId != null
+        ? (includeSubLocations
+            ? () {
+                final ids = <String>{storageLocationId};
+                void collectDescendants(String parentId) {
+                  for (final loc in _locations) {
+                    if (loc.parentId == parentId && !ids.contains(loc.id)) {
+                      ids.add(loc.id);
+                      collectDescendants(loc.id);
+                    }
+                  }
+                }
+                collectDescendants(storageLocationId);
+                return ids;
+              }()
+            : <String>{storageLocationId})
+        : null;
+
     return _items.where((item) {
       if (item.libraryId != libraryId) return false;
-      if (storageLocationId != null && item.storageLocationId != storageLocationId) {
-        return false;
+      if (targetLocationIds != null) {
+        if (item.storageLocationId == null || !targetLocationIds.contains(item.storageLocationId)) {
+          return false;
+        }
       }
       if (searchQuery != null && searchQuery.trim().isNotEmpty) {
         final q = searchQuery.toLowerCase().trim();

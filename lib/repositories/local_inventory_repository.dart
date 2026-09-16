@@ -209,13 +209,30 @@ class LocalInventoryRepository implements InventoryRepository {
     String libraryId, {
     String? storageLocationId,
     String? searchQuery,
+    bool includeSubLocations = false,
   }) async {
     final seenIds = <String>{};
     var result =
         db.items.where((it) => it.libraryId == libraryId && seenIds.add(it.id)).toList();
 
     if (storageLocationId != null) {
-      result = result.where((it) => it.storageLocationId == storageLocationId).toList();
+      if (includeSubLocations) {
+        final targetLocationIds = <String>{storageLocationId};
+        void collectDescendants(String parentId) {
+          for (final loc in db.locations) {
+            if (loc.parentId == parentId && !targetLocationIds.contains(loc.id)) {
+              targetLocationIds.add(loc.id);
+              collectDescendants(loc.id);
+            }
+          }
+        }
+        collectDescendants(storageLocationId);
+        result = result.where((it) =>
+            it.storageLocationId != null &&
+            targetLocationIds.contains(it.storageLocationId)).toList();
+      } else {
+        result = result.where((it) => it.storageLocationId == storageLocationId).toList();
+      }
     }
 
     if (searchQuery != null && searchQuery.trim().isNotEmpty) {

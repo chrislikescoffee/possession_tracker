@@ -31,8 +31,12 @@ abstract class InventoryRepository {
     required String? newParentId,
   });
 
-  // Item operations
-  Future<List<Item>> getItems(String libraryId, {String? storageLocationId, String? searchQuery});
+  Future<List<Item>> getItems(
+    String libraryId, {
+    String? storageLocationId,
+    String? searchQuery,
+    bool includeSubLocations = false,
+  });
   Future<Item?> getItem(String id);
   Future<Item> saveItem(Item item);
   Future<void> deleteItem(String id);

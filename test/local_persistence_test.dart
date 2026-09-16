@@ -324,4 +324,83 @@ void main() {
     expect(db.items.any((item) => item.libraryId == 'lib-workshop-01'), isFalse);
     expect(db.syncQueue.any((q) => q.entityId == 'lib-workshop-01'), isFalse);
   });
+
+  test('getItems with includeSubLocations: true recursively retrieves items from sub-locations', () async {
+    final db = LocalDatabaseService();
+    await db.init(customPath: dbPath);
+    final repo = LocalInventoryRepository(databaseService: db);
+
+    // Parent location: Shelf
+    final shelf = await repo.saveStorageLocation(
+      StorageLocation(
+        id: 'loc-parent-shelf',
+        libraryId: 'lib-workshop-01',
+        name: 'Parent Shelf',
+        createdAt: DateTime.now(),
+      ),
+    );
+
+    // Child location: Bin A in Shelf
+    final binA = await repo.saveStorageLocation(
+      StorageLocation(
+        id: 'loc-child-bin-a',
+        libraryId: 'lib-workshop-01',
+        parentId: shelf.id,
+        name: 'Bin A',
+        createdAt: DateTime.now(),
+      ),
+    );
+
+    // Grandchild location: Compartment 1 in Bin A
+    final comp1 = await repo.saveStorageLocation(
+      StorageLocation(
+        id: 'loc-grandchild-comp-1',
+        libraryId: 'lib-workshop-01',
+        parentId: binA.id,
+        name: 'Compartment 1',
+        createdAt: DateTime.now(),
+      ),
+    );
+
+    // Save items at each level
+    await repo.saveItem(Item(
+      id: 'item-on-shelf',
+      libraryId: 'lib-workshop-01',
+      storageLocationId: shelf.id,
+      name: 'Item on Shelf',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    ));
+
+    await repo.saveItem(Item(
+      id: 'item-in-bin',
+      libraryId: 'lib-workshop-01',
+      storageLocationId: binA.id,
+      name: 'Item in Bin A',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    ));
+
+    await repo.saveItem(Item(
+      id: 'item-in-comp',
+      libraryId: 'lib-workshop-01',
+      storageLocationId: comp1.id,
+      name: 'Item in Compartment 1',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    ));
+
+    // Direct items only (includeSubLocations: false)
+    final directItems = await repo.getItems('lib-workshop-01', storageLocationId: shelf.id, includeSubLocations: false);
+    expect(directItems.length, equals(1));
+    expect(directItems.first.id, equals('item-on-shelf'));
+
+    // Recursive items (includeSubLocations: true)
+    final allRecursiveItems = await repo.getItems('lib-workshop-01', storageLocationId: shelf.id, includeSubLocations: true);
+    final recursiveItemIds = allRecursiveItems.map((i) => i.id).toSet();
+    expect(recursiveItemIds, contains('item-on-shelf'));
+    expect(recursiveItemIds, contains('item-in-bin'));
+    expect(recursiveItemIds, contains('item-in-comp'));
+  });
 }
+

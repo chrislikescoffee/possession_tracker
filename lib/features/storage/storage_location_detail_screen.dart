@@ -777,6 +777,7 @@ class _StorageLocationDetailScreenState
     required List<StorageLocation> childLocations,
     required List<Item> items,
     required Library? selectedLib,
+    required Map<String, String> locationMap,
   }) {
     return DraggableScrollableSheet(
       initialChildSize: 0.08,
@@ -891,7 +892,7 @@ class _StorageLocationDetailScreenState
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 8),
                         child: Text(
-                          'No nested storage areas yet. Tap + Add Storage or Edit / Map to add.',
+                          'No nested storage areas yet. Tap + Add Storage or Edit to add.',
                           style:
                               TextStyle(color: Color(0xFF64748B), fontSize: 13),
                         ),
@@ -972,7 +973,7 @@ class _StorageLocationDetailScreenState
                   leading: const Icon(Icons.inventory_2_outlined,
                       size: 20, color: Color(0xFF10B981)),
                   title: Text(
-                    'Items stored here (${items.length})',
+                    'Items (${items.length})',
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
@@ -1016,7 +1017,7 @@ class _StorageLocationDetailScreenState
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 8),
                         child: Text(
-                          'No items stored directly in this container.',
+                          'No items stored in this area or sub-areas.',
                           style:
                               TextStyle(color: Color(0xFF64748B), fontSize: 13),
                         ),
@@ -1033,6 +1034,11 @@ class _StorageLocationDetailScreenState
                           final isMapped = location.regions
                                   .any((r) => r.targetItemId == it.id) ||
                               it.polygonPoints.isNotEmpty;
+                          final isSubLocationItem = it.storageLocationId != null &&
+                              it.storageLocationId != location.id;
+                          final subLocName = isSubLocationItem
+                              ? locationMap[it.storageLocationId]
+                              : null;
 
                           return ListTile(
                             dense: true,
@@ -1054,7 +1060,37 @@ class _StorageLocationDetailScreenState
                                         fontSize: 13),
                                   ),
                                 ),
-                                if (!isMapped)
+                                if (subLocName != null) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 5, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF06B6D4)
+                                          .withValues(alpha: 0.15),
+                                      borderRadius:
+                                          BorderRadius.circular(4),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.folder_outlined,
+                                            size: 10, color: Color(0xFF06B6D4)),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          subLocName,
+                                          style: const TextStyle(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF06B6D4),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                                if (!isMapped) ...[
+                                  const SizedBox(width: 6),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 5, vertical: 2),
@@ -1073,9 +1109,11 @@ class _StorageLocationDetailScreenState
                                       ),
                                     ),
                                   ),
+                                ],
                               ],
                             ),
-                            subtitle: it.description != null
+                            subtitle: it.description != null &&
+                                    it.description!.trim().isNotEmpty
                                 ? Text(
                                     it.description!,
                                     maxLines: 1,
@@ -1104,9 +1142,10 @@ class _StorageLocationDetailScreenState
     required List<StorageLocation> childLocations,
     required List<Item> items,
     required Library? selectedLib,
+    required Map<String, String> locationMap,
   }) {
     return DefaultTabController(
-      length: 3,
+      length: 2,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1148,18 +1187,19 @@ class _StorageLocationDetailScreenState
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            location.description?.isNotEmpty == true
-                                ? location.description!
-                                : 'Storage Inspector Workspace',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFF94A3B8),
+                          if (location.description != null &&
+                              location.description!.trim().isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              location.description!,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF94A3B8),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                          ],
                         ],
                       ),
                     ),
@@ -1182,13 +1222,6 @@ class _StorageLocationDetailScreenState
                       label: 'Items',
                       color: const Color(0xFF10B981),
                     ),
-                    const SizedBox(width: 8),
-                    _buildMetricChip(
-                      icon: Icons.polyline_outlined,
-                      count: location.regions.length,
-                      label: 'Polygons',
-                      color: const Color(0xFF818CF8),
-                    ),
                   ],
                 ),
               ],
@@ -1207,7 +1240,6 @@ class _StorageLocationDetailScreenState
               tabs: [
                 Tab(text: 'Areas'),
                 Tab(text: 'Items'),
-                Tab(text: 'Polygons'),
               ],
             ),
           ),
@@ -1224,9 +1256,7 @@ class _StorageLocationDetailScreenState
                   location: location,
                   items: items,
                   selectedLib: selectedLib,
-                ),
-                _buildDesktopRegionsTab(
-                  location: location,
+                  locationMap: locationMap,
                 ),
               ],
             ),
@@ -1389,7 +1419,7 @@ class _StorageLocationDetailScreenState
                           color: Colors.white,
                         ),
                       ),
-                      subtitle: sub.description != null && sub.description!.isNotEmpty
+                      subtitle: sub.description != null && sub.description!.trim().isNotEmpty
                           ? Text(
                               sub.description!,
                               maxLines: 1,
@@ -1431,6 +1461,7 @@ class _StorageLocationDetailScreenState
     required StorageLocation location,
     required List<Item> items,
     required Library? selectedLib,
+    required Map<String, String> locationMap,
   }) {
     return Column(
       children: [
@@ -1440,7 +1471,7 @@ class _StorageLocationDetailScreenState
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Items Stored Here (${items.length})',
+                'Items (${items.length})',
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
@@ -1510,6 +1541,12 @@ class _StorageLocationDetailScreenState
                     final it = items[idx];
                     final isMapped = location.regions
                         .any((r) => r.targetItemId == it.id);
+                    final isSubLocationItem = it.storageLocationId != null &&
+                        it.storageLocationId != location.id;
+                    final subLocName = isSubLocationItem
+                        ? locationMap[it.storageLocationId]
+                        : null;
+
                     return ListTile(
                       contentPadding:
                           const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
@@ -1525,15 +1562,51 @@ class _StorageLocationDetailScreenState
                           color: Color(0xFF10B981),
                         ),
                       ),
-                      title: Text(
-                        it.name,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
+                      title: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              it.name,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (subLocName != null) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 5, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF06B6D4)
+                                    .withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.folder_outlined,
+                                      size: 10, color: Color(0xFF06B6D4)),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    subLocName,
+                                    style: const TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF06B6D4),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                      subtitle: it.description != null && it.description!.isNotEmpty
+                      subtitle: it.description != null &&
+                              it.description!.trim().isNotEmpty
                           ? Text(
                               it.description!,
                               maxLines: 1,
@@ -1570,192 +1643,6 @@ class _StorageLocationDetailScreenState
     );
   }
 
-  Widget _buildDesktopRegionsTab({
-    required StorageLocation location,
-  }) {
-    final isEditing = _canvasMode != CanvasMode.view;
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Polygons (${location.regions.length})',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFFE2E8F0),
-                ),
-              ),
-              FilledButton.tonalIcon(
-                style: FilledButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  backgroundColor: isEditing
-                      ? const Color(0xFF10B981).withValues(alpha: 0.15)
-                      : const Color(0xFF6366F1).withValues(alpha: 0.15),
-                  foregroundColor: isEditing
-                      ? const Color(0xFF10B981)
-                      : const Color(0xFF818CF8),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                ),
-                icon: Icon(
-                  isEditing ? Icons.check : Icons.mode_edit_outline,
-                  size: 14,
-                ),
-                label: Text(
-                  isEditing ? 'Done Editing' : 'Edit Polygons',
-                  style: const TextStyle(fontSize: 12),
-                ),
-                onPressed: () {
-                  setState(() {
-                    if (isEditing) {
-                      _canvasMode = CanvasMode.view;
-                      _isIdentifyingItems = false;
-                    } else {
-                      _canvasMode = CanvasMode.edit;
-                    }
-                  });
-                },
-              ),
-            ],
-          ),
-        ),
-        const Divider(color: Color(0xFF1E293B), height: 1),
-        Expanded(
-          child: location.regions.isEmpty
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.polyline_outlined,
-                            size: 40, color: Color(0xFF334155)),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'No polygons mapped',
-                          style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Click "Edit" in the top bar to draw storage areas or items on the image.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              : ListView.separated(
-                  itemCount: location.regions.length,
-                  separatorBuilder: (_, __) =>
-                      const Divider(color: Color(0xFF1E293B), height: 1),
-                  itemBuilder: (context, idx) {
-                    final reg = location.regions[idx];
-                    final isLocation = reg.isLinkedToLocation;
-                    final isItem = reg.isLinkedToItem;
-
-                    final iconData = isLocation
-                        ? Icons.folder_outlined
-                        : (isItem
-                            ? Icons.inventory_2_outlined
-                            : Icons.polyline_outlined);
-                    final iconColor = isLocation
-                        ? const Color(0xFF06B6D4)
-                        : (isItem
-                            ? const Color(0xFF10B981)
-                            : const Color(0xFF818CF8));
-
-                    final typeLabel = isLocation
-                        ? 'Storage Area'
-                        : (isItem ? 'Item' : 'Unlinked Polygon');
-
-                    return ListTile(
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-                      leading: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: iconColor.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Icon(iconData, size: 18, color: iconColor),
-                      ),
-                      title: Text(
-                        reg.label.isNotEmpty ? reg.label : 'Polygon #${idx + 1}',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                      subtitle: Text(
-                        typeLabel,
-                        style: TextStyle(fontSize: 11, color: iconColor),
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.drive_file_rename_outline,
-                                size: 16, color: Color(0xFF94A3B8)),
-                            tooltip: 'Rename',
-                            onPressed: () async {
-                              final controller =
-                                  TextEditingController(text: reg.label);
-                              final newLabel = await showDialog<String>(
-                                context: context,
-                                builder: (ctx) => AlertDialog(
-                                  backgroundColor: const Color(0xFF1E293B),
-                                  title: const Text('Rename Region',
-                                      style: TextStyle(color: Colors.white)),
-                                  content: TextField(
-                                    controller: controller,
-                                    autofocus: true,
-                                    style: const TextStyle(color: Colors.white),
-                                    decoration: const InputDecoration(
-                                      labelText: 'Label',
-                                      labelStyle:
-                                          TextStyle(color: Color(0xFF94A3B8)),
-                                    ),
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(ctx),
-                                      child: const Text('Cancel'),
-                                    ),
-                                    FilledButton(
-                                      onPressed: () =>
-                                          Navigator.pop(ctx, controller.text.trim()),
-                                      child: const Text('Save'),
-                                    ),
-                                  ],
-                                ),
-                              );
-                              if (newLabel != null && newLabel.isNotEmpty) {
-                                await _handleRenameRegion(reg, newLabel, location);
-                              }
-                            },
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline,
-                                size: 16, color: Color(0xFFEF4444)),
-                            tooltip: 'Delete Region',
-                            onPressed: () => _handleDeleteRegion(reg, location),
-                          ),
-                        ],
-                      ),
-                      onTap: () => _onRegionTapped(reg),
-                    );
-                  },
-                ),
-        ),
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final locationAsync =
@@ -1766,6 +1653,8 @@ class _StorageLocationDetailScreenState
         ref.watch(storageLocationsProvider(widget.locationId));
     final itemsAsync = ref.watch(locationItemsProvider(widget.locationId));
     final selectedLib = ref.watch(selectedLibraryProvider).value;
+    final allLocations = ref.watch(allStorageLocationsProvider).value ?? [];
+    final locationMap = {for (final loc in allLocations) loc.id: loc.name};
 
     return locationAsync.when(
       data: (location) {
@@ -1943,6 +1832,7 @@ class _StorageLocationDetailScreenState
                               childLocations: childLocations,
                               items: items,
                               selectedLib: selectedLib,
+                              locationMap: locationMap,
                             ),
                           ),
                         ],
@@ -1965,6 +1855,7 @@ class _StorageLocationDetailScreenState
                             childLocations: childLocations,
                             items: items,
                             selectedLib: selectedLib,
+                            locationMap: locationMap,
                           ),
                       ],
                     );

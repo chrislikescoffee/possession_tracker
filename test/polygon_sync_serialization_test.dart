@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:possession_tracker/models/item_model.dart';
-import 'package:possession_tracker/models/polygon_region.dart';
 import 'package:possession_tracker/models/storage_location_model.dart';
 
 void main() {
