@@ -408,6 +408,15 @@ class LocalDatabaseService {
     if (enqueueSync) onDataChanged?.call();
   }
 
+  Future<void> removeLendingRecord(String id, {bool enqueueSync = true}) async {
+    _lendingRecords.removeWhere((r) => r.id == id);
+    if (enqueueSync) {
+      enqueue(SyncEntityType.lendingRecord, id, SyncOperation.delete, null);
+    }
+    await saveToDisk();
+    if (enqueueSync) onDataChanged?.call();
+  }
+
   // --- Sync Queue Helpers ---
 
   void enqueue(SyncEntityType entityType, String entityId, SyncOperation operation, Map<String, dynamic>? payload) {

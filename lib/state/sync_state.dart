@@ -101,6 +101,7 @@ class SyncStatusNotifier extends Notifier<SyncStatusInfo> {
         ref.invalidate(locationItemsProvider);
         ref.invalidate(libraryItemsProvider);
         ref.invalidate(itemTypesProvider);
+        ref.invalidate(lendingRecordsProvider);
       },
     );
   }
@@ -170,6 +171,7 @@ class SyncStatusNotifier extends Notifier<SyncStatusInfo> {
       ref.invalidate(locationItemsProvider);
       ref.invalidate(libraryItemsProvider);
       ref.invalidate(itemTypesProvider);
+      ref.invalidate(lendingRecordsProvider);
     }
     return result;
   }

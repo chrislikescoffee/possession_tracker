@@ -226,6 +226,8 @@ class CloudSyncService {
             case SyncEntityType.lendingRecord:
               if (item.operation == SyncOperation.upsert && item.payload != null) {
                 await _client!.from('lending_records').upsert(item.payload!);
+              } else if (item.operation == SyncOperation.delete) {
+                await _client!.from('lending_records').delete().eq('id', item.entityId);
               }
               break;
           }
@@ -344,6 +346,16 @@ class CloudSyncService {
             final remoteType = ItemType.fromJson(json as Map<String, dynamic>);
             await db.upsertItemType(remoteType, enqueueSync: false);
           }
+
+          // Pull lending records
+          final lendingResponse = await _client!
+              .from('lending_records')
+              .select()
+              .eq('library_id', lib.id);
+          for (final json in (lendingResponse as List)) {
+            final remoteLr = LendingRecord.fromJson(json as Map<String, dynamic>);
+            await db.upsertLendingRecord(remoteLr, enqueueSync: false);
+          }
         } catch (pullError) {
           debugPrint('Pull error for library ${lib.name}: $pullError');
           return SyncStatusInfo(
@@ -426,6 +438,12 @@ class CloudSyncService {
           payload.remove('custom_field_definitions');
           payload.remove('icon_name');
           await _client!.from('item_types').upsert(payload);
+        }
+
+        // Lending records
+        final lrs = db.lendingRecords.where((lr) => lr.libraryId == lib.id);
+        for (final lr in lrs) {
+          await _client!.from('lending_records').upsert(lr.toJson());
         }
       } catch (e) {
         debugPrint('Error pushing all local data for ${lib.name}: $e');
@@ -563,6 +581,9 @@ class CloudSyncService {
                         break;
                       case 'item_types':
                         await db.removeItemType(recordId, enqueueSync: false);
+                        break;
+                      case 'lending_records':
+                        await db.removeLendingRecord(recordId, enqueueSync: false);
                         break;
                     }
                   }

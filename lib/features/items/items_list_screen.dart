@@ -681,6 +681,38 @@ class _ItemTile extends StatelessWidget {
                       ),
                     ),
 
+                  // Lent Status Badge (top-left of image)
+                  if (item.isLentOut)
+                    Positioned(
+                      top: 6,
+                      left: 6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0F172A).withValues(alpha: 0.85),
+                          borderRadius: BorderRadius.circular(5),
+                          border: Border.all(
+                            color: const Color(0xFFF59E0B).withValues(alpha: 0.7),
+                          ),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('🤝', style: TextStyle(fontSize: 10)),
+                            SizedBox(width: 4),
+                            Text(
+                              'Lent',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFFF59E0B),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
                   // Item type tag top-right
                   if (item.effectiveItemTypeName != 'Generic Item')
                     Positioned(
@@ -848,9 +880,42 @@ class _ItemCard extends StatelessWidget {
                     Row(
                       children: [
                         Expanded(
-                          child: Text(
-                            item.name,
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          child: Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  item.name,
+                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (item.isLentOut) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4)),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text('🤝', style: TextStyle(fontSize: 10)),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'Lent',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFFF59E0B),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                         if (item.effectiveItemTypeName != 'Generic Item')

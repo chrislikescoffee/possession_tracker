@@ -11,6 +11,7 @@ class PolygonPainter extends CustomPainter {
   final double pulseAnimationValue; // 0.0 to 1.0 for pulsating locator halo
   final bool isDrawing;
   final int? activeVertexIndex;
+  final Set<String> lentItemIds;
 
   PolygonPainter({
     required this.regions,
@@ -21,6 +22,7 @@ class PolygonPainter extends CustomPainter {
     this.pulseAnimationValue = 0.0,
     this.isDrawing = false,
     this.activeVertexIndex,
+    this.lentItemIds = const {},
   });
 
   @override
@@ -33,7 +35,8 @@ class PolygonPainter extends CustomPainter {
 
       final isHighlighted = region.id == highlightedRegionId;
       final isSelected = region.id == selectedRegionId;
-      final baseColor = Color(region.colorHex);
+      final isLent = region.targetItemId != null && lentItemIds.contains(region.targetItemId);
+      final baseColor = isLent ? const Color(0xFFF59E0B) : Color(region.colorHex);
 
       final path = Path();
       final offsets = region.points.map((p) => p.toOffset(size)).toList();
@@ -105,6 +108,7 @@ class PolygonPainter extends CustomPainter {
           region.label,
           isHighlighted ? const Color(0xFFF59E0B) : baseColor,
           isHighlighted,
+          isLent: isLent,
         );
       }
     }
@@ -177,12 +181,16 @@ class PolygonPainter extends CustomPainter {
     Offset position,
     String text,
     Color accentColor,
-    bool isHighlighted,
-  ) {
+    bool isHighlighted, {
+    bool isLent = false,
+  }) {
+    final effectiveAccent = isLent ? const Color(0xFFF59E0B) : accentColor;
+    final displayText = isLent ? '🤝 $text (Lent)' : text;
+
     final textSpan = TextSpan(
-      text: text,
+      text: displayText,
       style: TextStyle(
-        color: Colors.white,
+        color: isLent ? const Color(0xFFFDE68A) : Colors.white,
         fontSize: isHighlighted ? 13 : 11,
         fontWeight: isHighlighted ? FontWeight.w800 : FontWeight.w600,
         shadows: const [Shadow(color: Colors.black54, blurRadius: 4)],
@@ -205,7 +213,7 @@ class PolygonPainter extends CustomPainter {
       ..color = const Color(0xFF0F172A).withValues(alpha: 0.85)
       ..style = PaintingStyle.fill;
     final borderPaint = Paint()
-      ..color = accentColor.withValues(alpha: 0.9)
+      ..color = effectiveAccent.withValues(alpha: 0.9)
       ..style = PaintingStyle.stroke
       ..strokeWidth = isHighlighted ? 2.0 : 1.2;
 
@@ -228,6 +236,7 @@ class PolygonPainter extends CustomPainter {
         oldDelegate.draftCursorPoint != draftCursorPoint ||
         oldDelegate.pulseAnimationValue != pulseAnimationValue ||
         oldDelegate.isDrawing != isDrawing ||
-        oldDelegate.activeVertexIndex != activeVertexIndex;
+        oldDelegate.activeVertexIndex != activeVertexIndex ||
+        oldDelegate.lentItemIds != lentItemIds;
   }
 }

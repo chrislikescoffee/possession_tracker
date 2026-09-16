@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/constants/app_constants.dart';
+import '../../models/polygon_region.dart';
 import '../../core/widgets/app_image_view.dart';
 import '../../core/widgets/image_picker_bottom_sheet.dart';
 import '../../models/field_definition_model.dart';
@@ -10,16 +11,48 @@ import '../../models/item_type_model.dart';
 import '../../state/item_type_state.dart';
 import 'typed_field_input_widget.dart';
 
+class ItemDialogResult {
+  final Item? item;
+  final List<NormalizedPoint>? polygonPoints;
+  final int? colorHex;
+  final bool isDrawRequested;
+  final String? draftName;
+  final String? draftDescription;
+  final String? draftItemTypeId;
+
+  const ItemDialogResult({
+    this.item,
+    this.polygonPoints,
+    this.colorHex,
+    this.isDrawRequested = false,
+    this.draftName,
+    this.draftDescription,
+    this.draftItemTypeId,
+  });
+}
+
 class AddEditItemDialog extends ConsumerStatefulWidget {
   final String libraryId;
   final String? initialLocationId;
   final Item? itemToEdit;
+  final bool allowDraw;
+  final String? initialName;
+  final String? initialDescription;
+  final String? initialItemTypeId;
+  final int? initialColorHex;
+  final List<NormalizedPoint>? initialPolygonPoints;
 
   const AddEditItemDialog({
     super.key,
     required this.libraryId,
     this.initialLocationId,
     this.itemToEdit,
+    this.allowDraw = false,
+    this.initialName,
+    this.initialDescription,
+    this.initialItemTypeId,
+    this.initialColorHex,
+    this.initialPolygonPoints,
   });
 
   @override
@@ -28,12 +61,23 @@ class AddEditItemDialog extends ConsumerStatefulWidget {
 
 class _AddEditItemDialogState extends ConsumerState<AddEditItemDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _descController = TextEditingController();
+  late final TextEditingController _nameController;
+  late final TextEditingController _descController;
   final _imageUrlController = TextEditingController();
 
   String? _selectedItemTypeId;
   String? _selectedItemTypeName;
+  late int _selectedColorHex;
+  List<NormalizedPoint>? _polygonPoints;
+
+  static const List<int> _paletteColors = [
+    0xFF10B981, // Emerald
+    0xFF06B6D4, // Cyan
+    0xFFF59E0B, // Amber
+    0xFF6366F1, // Indigo
+    0xFFA855F7, // Purple
+    0xFFF43F5E, // Rose
+  ];
 
   // Active field definitions (from item type or ad-hoc)
   final List<FieldDefinition> _fieldDefinitions = [];
@@ -44,13 +88,21 @@ class _AddEditItemDialogState extends ConsumerState<AddEditItemDialog> {
   @override
   void initState() {
     super.initState();
+    _nameController = TextEditingController(
+      text: widget.initialName ?? widget.itemToEdit?.name ?? '',
+    );
+    _descController = TextEditingController(
+      text: widget.initialDescription ?? widget.itemToEdit?.description ?? '',
+    );
+    _selectedItemTypeId = widget.initialItemTypeId ?? widget.itemToEdit?.itemTypeId ?? 'generic';
+    _selectedColorHex = widget.initialColorHex ?? _paletteColors.first;
+    _polygonPoints = widget.initialPolygonPoints ?? widget.itemToEdit?.polygonPoints;
+
     if (widget.itemToEdit != null) {
       final it = widget.itemToEdit!;
-      _nameController.text = it.name;
-      _descController.text = it.description ?? '';
       _imageUrlController.text = it.primaryImageUrl ?? '';
-      _selectedItemTypeId = it.itemTypeId ?? 'generic';
       _selectedItemTypeName = it.itemTypeName ?? 'Generic Item';
+
 
       // Load existing custom fields
       for (final entry in it.customFields.entries) {
@@ -230,6 +282,19 @@ class _AddEditItemDialogState extends ConsumerState<AddEditItemDialog> {
     }
   }
 
+  void _requestDraw() {
+    Navigator.of(context).pop(
+      ItemDialogResult(
+        isDrawRequested: true,
+        draftName: _nameController.text.trim(),
+        draftDescription: _descController.text.trim(),
+        draftItemTypeId: _selectedItemTypeId,
+        colorHex: _selectedColorHex,
+        polygonPoints: _polygonPoints,
+      ),
+    );
+  }
+
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
 
@@ -242,7 +307,7 @@ class _AddEditItemDialogState extends ConsumerState<AddEditItemDialog> {
       name: _nameController.text.trim(),
       description: _descController.text.trim().isEmpty ? null : _descController.text.trim(),
       primaryImageUrl: _imageUrlController.text.trim().isEmpty ? null : _imageUrlController.text.trim(),
-      polygonPoints: widget.itemToEdit?.polygonPoints ?? [],
+      polygonPoints: _polygonPoints ?? widget.itemToEdit?.polygonPoints ?? [],
       customFields: _fieldValues,
       isTemporarilyRelocated: widget.itemToEdit?.isTemporarilyRelocated ?? false,
       temporaryLocationNote: widget.itemToEdit?.temporaryLocationNote,
@@ -252,13 +317,24 @@ class _AddEditItemDialogState extends ConsumerState<AddEditItemDialog> {
       updatedAt: DateTime.now(),
     );
 
-    Navigator.of(context).pop(item);
+    if (widget.allowDraw) {
+      Navigator.of(context).pop(
+        ItemDialogResult(
+          item: item,
+          polygonPoints: _polygonPoints,
+          colorHex: _selectedColorHex,
+        ),
+      );
+    } else {
+      Navigator.of(context).pop(item);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.itemToEdit != null;
     final itemTypesAsync = ref.watch(itemTypesForLibraryProvider(widget.libraryId));
+    final hasDrawnPoints = _polygonPoints != null && _polygonPoints!.isNotEmpty;
 
     return AlertDialog(
       title: Text(isEditing ? 'Edit Item' : 'New Item'),
@@ -353,6 +429,117 @@ class _AddEditItemDialogState extends ConsumerState<AddEditItemDialog> {
                 ),
                 const SizedBox(height: 14),
 
+                // Drawing Configuration (When opened inside a storage area canvas)
+                if (widget.allowDraw) ...[
+                  // Color Choice Palette
+                  const Text(
+                    'Item Tag Color',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFE2E8F0),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: _paletteColors.map((hex) {
+                      final isSelected = _selectedColorHex == hex;
+                      return GestureDetector(
+                        onTap: () => setState(() => _selectedColorHex = hex),
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 10),
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: Color(hex),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isSelected ? Colors.white : Colors.transparent,
+                              width: 2.5,
+                            ),
+                            boxShadow: isSelected
+                                ? [
+                                    BoxShadow(
+                                      color: Color(hex).withValues(alpha: 0.5),
+                                      blurRadius: 8,
+                                      spreadRadius: 1,
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: isSelected
+                              ? const Icon(Icons.check, size: 16, color: Colors.white)
+                              : null,
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 12),
+
+                  if (hasDrawnPoints) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.4),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Polygon outline attached (${_polygonPoints!.length} points)',
+                              style: const TextStyle(
+                                color: Color(0xFF10B981),
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, size: 16, color: Color(0xFF94A3B8)),
+                            tooltip: 'Clear Polygon',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: () => setState(() => _polygonPoints = null),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  // Draw Item Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF10B981).withValues(alpha: 0.2),
+                        foregroundColor: const Color(0xFF10B981),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          side: const BorderSide(color: Color(0xFF10B981)),
+                        ),
+                      ),
+                      icon: Icon(
+                        hasDrawnPoints ? Icons.refresh : Icons.gesture,
+                        size: 18,
+                      ),
+                      label: Text(
+                        hasDrawnPoints ? 'Redraw Item Outline' : 'Draw Item on Photo',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      onPressed: _requestDraw,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                ],
+
                 // Photo preview & attachment button
                 Row(
                   children: [
@@ -381,6 +568,7 @@ class _AddEditItemDialogState extends ConsumerState<AddEditItemDialog> {
                   ],
                 ),
                 const SizedBox(height: 18),
+
 
                 // Typed Custom Fields Section
                 Row(

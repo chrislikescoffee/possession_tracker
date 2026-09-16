@@ -34,6 +34,102 @@ class _StorageLocationDetailScreenState
   CanvasMode _canvasMode = CanvasMode.view;
   bool _isIdentifyingItems = false;
   bool _snappingEnabled = true;
+  String? _hoveredRegionId;
+  String? _hoveredEntityId;
+
+  // Pending draw targets and drafts
+  StorageLocation? _pendingSubLocationToMap;
+  Item? _pendingItemToMap;
+  LocationDialogResult? _pendingSubLocationDraft;
+  ItemDialogResult? _pendingItemDraft;
+
+  void _startDrawingForLocation(StorageLocation sub) {
+    setState(() {
+      _pendingSubLocationToMap = sub;
+      _pendingItemToMap = null;
+      _pendingSubLocationDraft = null;
+      _pendingItemDraft = null;
+      _isIdentifyingItems = false;
+      _canvasMode = CanvasMode.draw;
+    });
+  }
+
+  void _startDrawingForItem(Item item) {
+    setState(() {
+      _pendingItemToMap = item;
+      _pendingSubLocationToMap = null;
+      _pendingSubLocationDraft = null;
+      _pendingItemDraft = null;
+      _isIdentifyingItems = false;
+      _canvasMode = CanvasMode.draw;
+    });
+  }
+
+  Future<void> _onAddAreaPressed(StorageLocation location) async {
+    final result = await showDialog<dynamic>(
+      context: context,
+      builder: (ctx) => AddEditLocationDialog(
+        libraryId: location.libraryId,
+        parentId: location.id,
+        allowDraw: true,
+      ),
+    );
+    if (result == null) return;
+    if (result is LocationDialogResult && result.isDrawRequested) {
+      setState(() {
+        _pendingSubLocationDraft = result;
+        _pendingSubLocationToMap = null;
+        _pendingItemToMap = null;
+        _pendingItemDraft = null;
+        _isIdentifyingItems = false;
+        _canvasMode = CanvasMode.draw;
+      });
+      return;
+    }
+    final newSub = result is LocationDialogResult
+        ? result.location
+        : (result is StorageLocation ? result : null);
+    if (newSub != null) {
+      final repo = ref.read(repositoryProvider);
+      await repo.saveStorageLocation(newSub);
+      ref.invalidate(storageLocationsProvider(location.id));
+      ref.invalidate(allStorageLocationsProvider);
+    }
+  }
+
+  Future<void> _onAddItemPressed(
+      StorageLocation location, Library? selectedLib) async {
+    if (selectedLib == null) return;
+    final result = await showDialog<dynamic>(
+      context: context,
+      builder: (ctx) => AddEditItemDialog(
+        libraryId: selectedLib.id,
+        initialLocationId: location.id,
+        allowDraw: true,
+      ),
+    );
+    if (result == null) return;
+    if (result is ItemDialogResult && result.isDrawRequested) {
+      setState(() {
+        _pendingItemDraft = result;
+        _pendingItemToMap = null;
+        _pendingSubLocationToMap = null;
+        _pendingSubLocationDraft = null;
+        _isIdentifyingItems = false;
+        _canvasMode = CanvasMode.draw;
+      });
+      return;
+    }
+    final newItem = result is ItemDialogResult
+        ? result.item
+        : (result is Item ? result : null);
+    if (newItem != null) {
+      final repo = ref.read(repositoryProvider);
+      await repo.saveItem(newItem);
+      ref.invalidate(locationItemsProvider(location.id));
+      ref.invalidate(libraryItemsProvider);
+    }
+  }
 
   void _onRegionTapped(PolygonRegion region) {
     if (region.isLinkedToLocation) {
@@ -66,6 +162,171 @@ class _StorageLocationDetailScreenState
       );
     }
     if (!mounted) return;
+
+    // Case A: User clicked pen icon on an existing unmapped sub-location
+    if (_pendingSubLocationToMap != null) {
+      final targetSub = _pendingSubLocationToMap!;
+      _pendingSubLocationToMap = null;
+
+      final newRegion = PolygonRegion(
+        id: const Uuid().v4(),
+        label: targetSub.name,
+        points: points,
+        targetLocationId: targetSub.id,
+        colorHex: 0xFF06B6D4,
+      );
+
+      final updatedLocation = location.copyWith(
+        regions: [...location.regions, newRegion],
+      );
+      await repo.saveStorageLocation(updatedLocation);
+      setState(() => _canvasMode = CanvasMode.view);
+      ref.invalidate(storageLocationDetailProvider(location.id));
+      ref.invalidate(storageLocationsProvider(location.id));
+      ref.invalidate(allStorageLocationsProvider);
+      return;
+    }
+
+    // Case B: User clicked pen icon on an existing unmapped item
+    if (_pendingItemToMap != null) {
+      final targetItem = _pendingItemToMap!;
+      _pendingItemToMap = null;
+
+      final updatedItem = targetItem.copyWith(
+        polygonPoints: points,
+        storageLocationId: location.id,
+        primaryImageUrl: (targetItem.primaryImageUrl == null || targetItem.primaryImageUrl!.isEmpty) &&
+                croppedImageUrl != null
+            ? croppedImageUrl
+            : targetItem.primaryImageUrl,
+        updatedAt: DateTime.now(),
+      );
+      await repo.saveItem(updatedItem);
+
+      final newRegion = PolygonRegion(
+        id: const Uuid().v4(),
+        label: targetItem.name,
+        points: points,
+        targetItemId: targetItem.id,
+        colorHex: 0xFF10B981,
+      );
+
+      final updatedLocation = location.copyWith(
+        regions: [...location.regions, newRegion],
+      );
+      await repo.saveStorageLocation(updatedLocation);
+      setState(() => _canvasMode = CanvasMode.view);
+      ref.invalidate(storageLocationDetailProvider(location.id));
+      ref.invalidate(locationItemsProvider(location.id));
+      ref.invalidate(libraryItemsProvider);
+      return;
+    }
+
+    // Case C: User initiated "+ Add Area" and chose "Draw Area on Photo"
+    if (_pendingSubLocationDraft != null) {
+      final draft = _pendingSubLocationDraft!;
+      _pendingSubLocationDraft = null;
+      setState(() => _canvasMode = CanvasMode.view);
+
+      final dialogResult = await showDialog<dynamic>(
+        context: context,
+        builder: (ctx) => AddEditLocationDialog(
+          libraryId: location.libraryId,
+          parentId: location.id,
+          allowDraw: true,
+          initialName: draft.draftName,
+          initialDescription: draft.draftDescription,
+          initialColorHex: draft.colorHex,
+          initialPolygonPoints: points,
+          initialUseCroppedPhoto: draft.useCroppedPhoto,
+        ),
+      );
+
+      if (dialogResult != null) {
+        final StorageLocation? newSub = dialogResult is LocationDialogResult
+            ? dialogResult.location
+            : (dialogResult is StorageLocation ? dialogResult : null);
+        final bool useCropped = dialogResult is LocationDialogResult
+            ? dialogResult.useCroppedPhoto
+            : true;
+        final int colorHex = (dialogResult is LocationDialogResult ? dialogResult.colorHex : null) ?? 0xFF06B6D4;
+
+        if (newSub != null) {
+          StorageLocation toSave = newSub;
+          if (useCropped && croppedImageUrl != null) {
+            toSave = toSave.copyWith(imageUrl: croppedImageUrl);
+          }
+          await repo.saveStorageLocation(toSave);
+
+          final newRegion = PolygonRegion(
+            id: const Uuid().v4(),
+            label: toSave.name,
+            points: points,
+            targetLocationId: toSave.id,
+            colorHex: colorHex,
+          );
+          await repo.saveStorageLocation(location.copyWith(regions: [...location.regions, newRegion]));
+
+          ref.invalidate(storageLocationDetailProvider(location.id));
+          ref.invalidate(storageLocationsProvider(location.id));
+          ref.invalidate(allStorageLocationsProvider);
+        }
+      }
+      return;
+    }
+
+    // Case D: User initiated "+ Add Item" and chose "Draw Item on Photo"
+    if (_pendingItemDraft != null) {
+      final draft = _pendingItemDraft!;
+      _pendingItemDraft = null;
+      setState(() => _canvasMode = CanvasMode.view);
+
+      final dialogResult = await showDialog<dynamic>(
+        context: context,
+        builder: (ctx) => AddEditItemDialog(
+          libraryId: selectedLib?.id ?? location.libraryId,
+          initialLocationId: location.id,
+          allowDraw: true,
+          initialName: draft.draftName,
+          initialDescription: draft.draftDescription,
+          initialItemTypeId: draft.draftItemTypeId,
+          initialColorHex: draft.colorHex,
+          initialPolygonPoints: points,
+        ),
+      );
+
+      if (dialogResult != null) {
+        final Item? newItem = dialogResult is ItemDialogResult
+            ? dialogResult.item
+            : (dialogResult is Item ? dialogResult : null);
+        final int colorHex = (dialogResult is ItemDialogResult ? dialogResult.colorHex : null) ?? 0xFF10B981;
+
+        if (newItem != null) {
+          final toSave = newItem.copyWith(
+            polygonPoints: points,
+            primaryImageUrl: (newItem.primaryImageUrl == null || newItem.primaryImageUrl!.isEmpty) &&
+                    croppedImageUrl != null
+                ? croppedImageUrl
+                : newItem.primaryImageUrl,
+          );
+          await repo.saveItem(toSave);
+
+          final newRegion = PolygonRegion(
+            id: const Uuid().v4(),
+            label: toSave.name,
+            points: points,
+            targetItemId: toSave.id,
+            colorHex: colorHex,
+          );
+          await repo.saveStorageLocation(location.copyWith(regions: [...location.regions, newRegion]));
+
+          ref.invalidate(storageLocationDetailProvider(location.id));
+          ref.invalidate(locationItemsProvider(location.id));
+          ref.invalidate(libraryItemsProvider);
+        }
+      }
+      return;
+    }
 
     // Fetch all library items to partition into:
     // 1. Existing unlinked items in that storage area (listed first)
@@ -622,13 +883,16 @@ class _StorageLocationDetailScreenState
                 subtitle: 'Rename container or change description',
                 onTap: () async {
                   Navigator.of(ctx).pop();
-                  final edited = await showDialog<StorageLocation>(
+                  final res = await showDialog<dynamic>(
                     context: context,
                     builder: (dCtx) => AddEditLocationDialog(
                       libraryId: location.libraryId,
                       locationToEdit: location,
                     ),
                   );
+                  final edited = res is LocationDialogResult
+                      ? res.location
+                      : (res is StorageLocation ? res : null);
                   if (edited != null) {
                     final repo = ref.read(repositoryProvider);
                     await repo.saveStorageLocation(edited);
@@ -867,22 +1131,7 @@ class _StorageLocationDetailScreenState
                         icon: const Icon(Icons.add, size: 16),
                         label: const Text('Add Storage',
                             style: TextStyle(fontSize: 12)),
-                        onPressed: () async {
-                          final newSub = await showDialog<StorageLocation>(
-                            context: context,
-                            builder: (ctx) => AddEditLocationDialog(
-                              libraryId: location.libraryId,
-                              parentId: location.id,
-                            ),
-                          );
-                          if (newSub != null) {
-                            final repo = ref.read(repositoryProvider);
-                            await repo.saveStorageLocation(newSub);
-                            ref.invalidate(
-                                storageLocationsProvider(location.id));
-                            ref.invalidate(allStorageLocationsProvider);
-                          }
-                        },
+                        onPressed: () => _onAddAreaPressed(location),
                       ),
                       const Icon(Icons.expand_more, color: Color(0xFF94A3B8)),
                     ],
@@ -904,52 +1153,18 @@ class _StorageLocationDetailScreenState
                           spacing: 8,
                           runSpacing: 8,
                           children: childLocations.map((sub) {
-                            final isMapped = location.regions
-                                .any((r) => r.targetLocationId == sub.id);
                             return ActionChip(
                               backgroundColor: const Color(0xFF1E293B),
-                              side: BorderSide(
-                                color: isMapped
-                                    ? const Color(0xFF334155)
-                                    : const Color(0xFFF59E0B)
-                                        .withValues(alpha: 0.5),
-                              ),
-                              avatar: Icon(
-                                isMapped
-                                    ? Icons.folder_outlined
-                                    : Icons.folder_open_outlined,
+                              side: const BorderSide(color: Color(0xFF334155)),
+                              avatar: const Icon(
+                                Icons.folder_outlined,
                                 size: 16,
-                                color: isMapped
-                                    ? const Color(0xFF06B6D4)
-                                    : const Color(0xFFF59E0B),
+                                color: Color(0xFF06B6D4),
                               ),
-                              label: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(sub.name,
-                                      style: const TextStyle(
-                                          color: Colors.white, fontSize: 12)),
-                                  if (!isMapped) ...[
-                                    const SizedBox(width: 6),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 5, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFF59E0B)
-                                            .withValues(alpha: 0.2),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: const Text(
-                                        'Unmapped',
-                                        style: TextStyle(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFFF59E0B),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ],
+                              label: Text(
+                                sub.name,
+                                style: const TextStyle(
+                                    color: Colors.white, fontSize: 12),
                               ),
                               onPressed: () =>
                                   context.go('/storage/${sub.id}'),
@@ -991,23 +1206,8 @@ class _StorageLocationDetailScreenState
                         icon: const Icon(Icons.add, size: 16),
                         label: const Text('Add Item',
                             style: TextStyle(fontSize: 12)),
-                        onPressed: () async {
-                          if (selectedLib == null) return;
-                          final newItem = await showDialog<Item>(
-                            context: context,
-                            builder: (ctx) => AddEditItemDialog(
-                              libraryId: selectedLib.id,
-                              initialLocationId: location.id,
-                            ),
-                          );
-                          if (newItem != null) {
-                            final repo = ref.read(repositoryProvider);
-                            await repo.saveItem(newItem);
-                            ref.invalidate(
-                                locationItemsProvider(location.id));
-                            ref.invalidate(libraryItemsProvider);
-                          }
-                        },
+                        onPressed: () =>
+                            _onAddItemPressed(location, selectedLib),
                       ),
                       const Icon(Icons.expand_more, color: Color(0xFF94A3B8)),
                     ],
@@ -1031,9 +1231,6 @@ class _StorageLocationDetailScreenState
                             const SizedBox(height: 6),
                         itemBuilder: (context, index) {
                           final it = items[index];
-                          final isMapped = location.regions
-                                  .any((r) => r.targetItemId == it.id) ||
-                              it.polygonPoints.isNotEmpty;
                           final isSubLocationItem = it.storageLocationId != null &&
                               it.storageLocationId != location.id;
                           final subLocName = isSubLocationItem
@@ -1060,6 +1257,34 @@ class _StorageLocationDetailScreenState
                                         fontSize: 13),
                                   ),
                                 ),
+                                if (it.isLentOut) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 5, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF59E0B)
+                                          .withValues(alpha: 0.18),
+                                      borderRadius:
+                                          BorderRadius.circular(4),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text('🤝', style: TextStyle(fontSize: 10)),
+                                        SizedBox(width: 3),
+                                        Text(
+                                          'Lent',
+                                          style: TextStyle(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFFF59E0B),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                                 if (subLocName != null) ...[
                                   const SizedBox(width: 6),
                                   Container(
@@ -1086,27 +1311,6 @@ class _StorageLocationDetailScreenState
                                           ),
                                         ),
                                       ],
-                                    ),
-                                  ),
-                                ],
-                                if (!isMapped) ...[
-                                  const SizedBox(width: 6),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 5, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF59E0B)
-                                          .withValues(alpha: 0.2),
-                                      borderRadius:
-                                          BorderRadius.circular(4),
-                                    ),
-                                    child: const Text(
-                                      'Unmapped',
-                                      style: TextStyle(
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFFF59E0B),
-                                      ),
                                     ),
                                   ),
                                 ],
@@ -1151,7 +1355,7 @@ class _StorageLocationDetailScreenState
         children: [
           // Header
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: const BoxDecoration(
               color: Color(0xFF131B2E),
               border: Border(
@@ -1161,85 +1365,45 @@ class _StorageLocationDetailScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF6366F1).withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.dashboard_customize_outlined,
-                          size: 20, color: Color(0xFF818CF8)),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            location.name,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          if (location.description != null &&
-                              location.description!.trim().isNotEmpty) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              location.description!,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFF94A3B8),
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
+                Text(
+                  location.name,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 14),
-                // Metric badges
-                Row(
-                  children: [
-                    _buildMetricChip(
-                      icon: Icons.folder_open,
-                      count: childLocations.length,
-                      label: 'Areas',
-                      color: const Color(0xFF06B6D4),
+                if (location.description != null &&
+                    location.description!.trim().isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    location.description!,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF94A3B8),
                     ),
-                    const SizedBox(width: 8),
-                    _buildMetricChip(
-                      icon: Icons.inventory_2_outlined,
-                      count: items.length,
-                      label: 'Items',
-                      color: const Color(0xFF10B981),
-                    ),
-                  ],
-                ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ],
             ),
           ),
 
-          // Tab Bar
+          // Tab Bar with counts directly beside headings
           Container(
             color: const Color(0xFF111827),
-            child: const TabBar(
-              indicatorColor: Color(0xFF6366F1),
+            child: TabBar(
+              indicatorColor: const Color(0xFF6366F1),
               indicatorWeight: 3,
               labelColor: Colors.white,
-              unselectedLabelColor: Color(0xFF94A3B8),
-              labelStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              unselectedLabelColor: const Color(0xFF94A3B8),
+              labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
               tabs: [
-                Tab(text: 'Areas'),
-                Tab(text: 'Items'),
+                Tab(text: 'Areas (${childLocations.length})'),
+                Tab(text: 'Items (${items.length})'),
               ],
             ),
           ),
@@ -1262,52 +1426,6 @@ class _StorageLocationDetailScreenState
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildMetricChip({
-    required IconData icon,
-    required int count,
-    required String label,
-    required Color color,
-  }) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
-        ),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 14, color: color),
-                const SizedBox(width: 4),
-                Text(
-                  '$count',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF94A3B8),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -1340,21 +1458,7 @@ class _StorageLocationDetailScreenState
                 ),
                 icon: const Icon(Icons.add, size: 14),
                 label: const Text('Add Area', style: TextStyle(fontSize: 12)),
-                onPressed: () async {
-                  final newSub = await showDialog<StorageLocation>(
-                    context: context,
-                    builder: (ctx) => AddEditLocationDialog(
-                      libraryId: location.libraryId,
-                      parentId: location.id,
-                    ),
-                  );
-                  if (newSub != null) {
-                    final repo = ref.read(repositoryProvider);
-                    await repo.saveStorageLocation(newSub);
-                    ref.invalidate(storageLocationsProvider(location.id));
-                    ref.invalidate(allStorageLocationsProvider);
-                  }
-                },
+                onPressed: () => _onAddAreaPressed(location),
               ),
             ],
           ),
@@ -1386,74 +1490,230 @@ class _StorageLocationDetailScreenState
                 )
               : ListView.separated(
                   itemCount: childLocations.length,
-                  separatorBuilder: (_, __) =>
+                  separatorBuilder: (context, index) =>
                       const Divider(color: Color(0xFF1E293B), height: 1),
                   itemBuilder: (context, idx) {
                     final sub = childLocations[idx];
-                    final isMapped = location.regions
-                        .any((r) => r.targetLocationId == sub.id);
-                    return ListTile(
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-                      leading: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: isMapped
-                              ? const Color(0xFF06B6D4).withValues(alpha: 0.15)
-                              : const Color(0xFFF59E0B).withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Icon(
-                          isMapped ? Icons.folder_outlined : Icons.folder_open_outlined,
-                          size: 18,
-                          color: isMapped
-                              ? const Color(0xFF06B6D4)
-                              : const Color(0xFFF59E0B),
-                        ),
-                      ),
-                      title: Text(
-                        sub.name,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                      subtitle: sub.description != null && sub.description!.trim().isNotEmpty
-                          ? Text(
-                              sub.description!,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  fontSize: 11, color: Color(0xFF94A3B8)),
-                            )
-                          : null,
-                      trailing: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: isMapped
-                              ? const Color(0xFF06B6D4).withValues(alpha: 0.15)
-                              : const Color(0xFFF59E0B).withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          isMapped ? 'Mapped' : 'Unmapped',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: isMapped
-                                ? const Color(0xFF06B6D4)
-                                : const Color(0xFFF59E0B),
+                    final matchingRegion = location.regions
+                        .where((r) => r.targetLocationId == sub.id)
+                        .firstOrNull;
+                    final isMapped = matchingRegion != null;
+                    final isHovered = _hoveredEntityId == sub.id;
+
+                    return MouseRegion(
+                      onEnter: (_) {
+                        setState(() {
+                          _hoveredEntityId = sub.id;
+                          if (matchingRegion != null) {
+                            _hoveredRegionId = matchingRegion.id;
+                          }
+                        });
+                      },
+                      onExit: (_) {
+                        setState(() {
+                          if (_hoveredEntityId == sub.id) {
+                            _hoveredEntityId = null;
+                            _hoveredRegionId = null;
+                          }
+                        });
+                      },
+                      child: ListTile(
+                        contentPadding:
+                            const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                        leading: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF06B6D4).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Icon(
+                            Icons.folder_outlined,
+                            size: 18,
+                            color: Color(0xFF06B6D4),
                           ),
                         ),
+                        title: Text(
+                          sub.name,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                        subtitle: sub.description != null && sub.description!.trim().isNotEmpty
+                            ? Text(
+                                sub.description!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    fontSize: 11, color: Color(0xFF94A3B8)),
+                              )
+                            : null,
+                        trailing: (!isMapped && isHovered)
+                            ? Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF475569).withValues(alpha: 0.3),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(color: const Color(0xFF64748B).withValues(alpha: 0.4)),
+                                    ),
+                                    child: const Text(
+                                      'Not drawn',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF94A3B8),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  IconButton(
+                                    icon: const Icon(Icons.mode_edit_outline, size: 16, color: Color(0xFF38BDF8)),
+                                    tooltip: 'Draw area outline',
+                                    visualDensity: VisualDensity.compact,
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                    onPressed: () => _startDrawingForLocation(sub),
+                                  ),
+                                ],
+                              )
+                            : const Icon(Icons.chevron_right, size: 16, color: Color(0xFF64748B)),
+                        onTap: () => context.go('/storage/${sub.id}'),
                       ),
-                      onTap: () => context.go('/storage/${sub.id}'),
                     );
                   },
                 ),
         ),
       ],
+    );
+  }
+
+  Widget _buildItemTile({
+    required Item it,
+    required StorageLocation location,
+  }) {
+    final matchingRegion = location.regions
+        .where((r) => r.targetItemId == it.id)
+        .firstOrNull;
+    final isMapped = matchingRegion != null || it.polygonPoints.isNotEmpty;
+    final isHovered = _hoveredEntityId == it.id;
+
+    return MouseRegion(
+      onEnter: (_) {
+        setState(() {
+          _hoveredEntityId = it.id;
+          if (matchingRegion != null) {
+            _hoveredRegionId = matchingRegion.id;
+          }
+        });
+      },
+      onExit: (_) {
+        setState(() {
+          if (_hoveredEntityId == it.id) {
+            _hoveredEntityId = null;
+            _hoveredRegionId = null;
+          }
+        });
+      },
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+        leading: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: const Color(0xFF10B981).withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: const Icon(
+            Icons.inventory_2_outlined,
+            size: 18,
+            color: Color(0xFF10B981),
+          ),
+        ),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                it.name,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (it.isLentOut) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('🤝', style: TextStyle(fontSize: 10)),
+                    SizedBox(width: 3),
+                    Text(
+                      'Lent',
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFF59E0B),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+        subtitle: it.description != null && it.description!.trim().isNotEmpty
+            ? Text(
+                it.description!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+              )
+            : null,
+        trailing: (!isMapped && isHovered)
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF475569).withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: const Color(0xFF64748B).withValues(alpha: 0.4)),
+                    ),
+                    child: const Text(
+                      'Not drawn',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF94A3B8),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: const Icon(Icons.mode_edit_outline, size: 16, color: Color(0xFF38BDF8)),
+                    tooltip: 'Draw item outline',
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                    onPressed: () => _startDrawingForItem(it),
+                  ),
+                ],
+              )
+            : const Icon(Icons.chevron_right, size: 16, color: Color(0xFF64748B)),
+        onTap: () => context.go('/items/${it.id}'),
+      ),
     );
   }
 
@@ -1463,6 +1723,21 @@ class _StorageLocationDetailScreenState
     required Library? selectedLib,
     required Map<String, String> locationMap,
   }) {
+    // Partition items into directly stored vs nested sub-locations
+    final directItems = items.where((it) =>
+        it.storageLocationId == null ||
+        it.storageLocationId!.isEmpty ||
+        it.storageLocationId == location.id).toList();
+
+    final Map<String, List<Item>> subLocationGroups = {};
+    for (final it in items) {
+      if (it.storageLocationId != null &&
+          it.storageLocationId!.isNotEmpty &&
+          it.storageLocationId != location.id) {
+        subLocationGroups.putIfAbsent(it.storageLocationId!, () => []).add(it);
+      }
+    }
+
     return Column(
       children: [
         Padding(
@@ -1487,22 +1762,7 @@ class _StorageLocationDetailScreenState
                 ),
                 icon: const Icon(Icons.add, size: 14),
                 label: const Text('Add Item', style: TextStyle(fontSize: 12)),
-                onPressed: () async {
-                  if (selectedLib == null) return;
-                  final newItem = await showDialog<Item>(
-                    context: context,
-                    builder: (ctx) => AddEditItemDialog(
-                      libraryId: selectedLib.id,
-                      initialLocationId: location.id,
-                    ),
-                  );
-                  if (newItem != null) {
-                    final repo = ref.read(repositoryProvider);
-                    await repo.saveItem(newItem);
-                    ref.invalidate(locationItemsProvider(location.id));
-                    ref.invalidate(libraryItemsProvider);
-                  }
-                },
+                onPressed: () => _onAddItemPressed(location, selectedLib),
               ),
             ],
           ),
@@ -1533,110 +1793,89 @@ class _StorageLocationDetailScreenState
                     ),
                   ),
                 )
-              : ListView.separated(
-                  itemCount: items.length,
-                  separatorBuilder: (_, __) =>
-                      const Divider(color: Color(0xFF1E293B), height: 1),
-                  itemBuilder: (context, idx) {
-                    final it = items[idx];
-                    final isMapped = location.regions
-                        .any((r) => r.targetItemId == it.id);
-                    final isSubLocationItem = it.storageLocationId != null &&
-                        it.storageLocationId != location.id;
-                    final subLocName = isSubLocationItem
-                        ? locationMap[it.storageLocationId]
-                        : null;
-
-                    return ListTile(
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-                      leading: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10B981).withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Icon(
-                          Icons.inventory_2_outlined,
-                          size: 18,
-                          color: Color(0xFF10B981),
-                        ),
-                      ),
-                      title: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              it.name,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (subLocName != null) ...[
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 5, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF06B6D4)
-                                    .withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.folder_outlined,
-                                      size: 10, color: Color(0xFF06B6D4)),
-                                  const SizedBox(width: 3),
-                                  Text(
-                                    subLocName,
-                                    style: const TextStyle(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF06B6D4),
-                                    ),
+              : ListView(
+                  children: [
+                    // Section 1: Directly Stored Items
+                    if (directItems.isNotEmpty) ...[
+                      if (subLocationGroups.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+                          color: const Color(0xFF0F172A),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.place_outlined, size: 14, color: Color(0xFF818CF8)),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  'Directly in ${location.name}',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFFCBD5E1),
                                   ),
-                                ],
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF818CF8).withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  '${directItems.length}',
+                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF818CF8)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      for (final it in directItems) ...[
+                        _buildItemTile(it: it, location: location),
+                        const Divider(color: Color(0xFF1E293B), height: 1),
+                      ],
+                    ],
+
+                    // Section 2: Items in Sub-Locations
+                    for (final entry in subLocationGroups.entries) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+                        color: const Color(0xFF0F172A),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.folder_outlined, size: 14, color: Color(0xFF06B6D4)),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                locationMap[entry.key] ?? 'Sub-Location',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFFCBD5E1),
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF06B6D4).withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '${entry.value.length}',
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF06B6D4)),
                               ),
                             ),
                           ],
-                        ],
+                        ),
                       ),
-                      subtitle: it.description != null &&
-                              it.description!.trim().isNotEmpty
-                          ? Text(
-                              it.description!,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  fontSize: 11, color: Color(0xFF94A3B8)),
-                            )
-                          : null,
-                      trailing: !isMapped
-                          ? Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF59E0B)
-                                    .withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: const Text(
-                                'Unmapped',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFFF59E0B),
-                                ),
-                              ),
-                            )
-                          : null,
-                      onTap: () => context.go('/items/${it.id}'),
-                    );
-                  },
+                      for (final it in entry.value) ...[
+                        _buildItemTile(it: it, location: location),
+                        const Divider(color: Color(0xFF1E293B), height: 1),
+                      ],
+                    ],
+                  ],
                 ),
         ),
       ],
@@ -1783,7 +2022,15 @@ class _StorageLocationDetailScreenState
                       mode: _canvasMode,
                       focusPolygon: focusPolygon,
                       initialSnappingEnabled: _snappingEnabled,
-                      newPolygonLabel: _isIdentifyingItems ? 'Draw Item' : 'Draw Storage',
+                      highlightedRegionId: _hoveredRegionId,
+                      lentItemIds: {for (final it in items) if (it.isLentOut) it.id},
+                      newPolygonLabel: _pendingItemToMap != null
+                          ? 'Draw "${_pendingItemToMap!.name}"'
+                          : _pendingSubLocationToMap != null
+                              ? 'Draw "${_pendingSubLocationToMap!.name}"'
+                              : _isIdentifyingItems
+                                  ? 'Draw Item'
+                                  : 'Draw Storage',
                       onSnappingChanged: (val) {
                         setState(() => _snappingEnabled = val);
                       },
@@ -1794,7 +2041,15 @@ class _StorageLocationDetailScreenState
                         childLocations,
                         items,
                       ),
-                      onCancelDrawing: () {},
+                      onCancelDrawing: () {
+                        setState(() {
+                          _pendingSubLocationDraft = null;
+                          _pendingItemDraft = null;
+                          _pendingSubLocationToMap = null;
+                          _pendingItemToMap = null;
+                          _canvasMode = CanvasMode.view;
+                        });
+                      },
                       onDeleteRegion: (reg) =>
                           _handleDeleteRegion(reg, location),
                       onRenameRegion: (reg, newLabel) =>
@@ -1805,6 +2060,10 @@ class _StorageLocationDetailScreenState
                         setState(() {
                           _canvasMode = CanvasMode.view;
                           _isIdentifyingItems = false;
+                          _pendingSubLocationDraft = null;
+                          _pendingItemDraft = null;
+                          _pendingSubLocationToMap = null;
+                          _pendingItemToMap = null;
                         });
                       },
                     );

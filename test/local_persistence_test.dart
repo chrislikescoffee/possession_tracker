@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:possession_tracker/core/services/local_database_service.dart';
 import 'package:possession_tracker/models/item_model.dart';
+import 'package:possession_tracker/models/lending_record_model.dart';
 import 'package:possession_tracker/models/polygon_region.dart';
 import 'package:possession_tracker/models/storage_location_model.dart';
 import 'package:possession_tracker/models/sync_model.dart';
@@ -401,6 +402,33 @@ void main() {
     expect(recursiveItemIds, contains('item-on-shelf'));
     expect(recursiveItemIds, contains('item-in-bin'));
     expect(recursiveItemIds, contains('item-in-comp'));
+  });
+
+  test('LocalDatabaseService removeLendingRecord removes record and enqueues sync delete properly', () async {
+    final db = LocalDatabaseService();
+    await db.init(customPath: dbPath);
+
+    final record = LendingRecord(
+      id: 'lend-rec-1',
+      libraryId: 'lib-workshop-01',
+      itemId: 'item-1',
+      borrowerName: 'Alice',
+      lentAt: DateTime.now(),
+      notes: 'Test note',
+    );
+
+    await db.upsertLendingRecord(record);
+    expect(db.lendingRecords.any((r) => r.id == 'lend-rec-1'), isTrue);
+
+    await db.removeLendingRecord('lend-rec-1');
+    expect(db.lendingRecords.any((r) => r.id == 'lend-rec-1'), isFalse);
+    expect(
+      db.syncQueue.any((q) =>
+          q.entityId == 'lend-rec-1' &&
+          q.entityType == SyncEntityType.lendingRecord &&
+          q.operation == SyncOperation.delete),
+      isTrue,
+    );
   });
 }
 

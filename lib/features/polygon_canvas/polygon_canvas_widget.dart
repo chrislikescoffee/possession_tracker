@@ -43,7 +43,10 @@ class PolygonCanvasWidget extends StatefulWidget {
     this.onRegionUpdated,
     this.onSaveEditSession,
     this.newPolygonLabel,
+    this.lentItemIds = const {},
   });
+
+  final Set<String> lentItemIds;
 
   @override
   State<PolygonCanvasWidget> createState() => _PolygonCanvasWidgetState();
@@ -570,6 +573,7 @@ class _PolygonCanvasWidgetState extends State<PolygonCanvasWidget>
                                     pulseAnimationValue: _pulseAnimation.value,
                                     isDrawing: isDrawingMode,
                                     activeVertexIndex: _activeDragVertexIndex,
+                                    lentItemIds: widget.lentItemIds,
                                   ),
                                 );
                               },
@@ -914,15 +918,15 @@ class _PolygonCanvasWidgetState extends State<PolygonCanvasWidget>
             ),
             const SizedBox(width: 4),
 
-            // 2. Delete / Discard draft option
+            // 2. Cancel / Discard draft option
             TextButton.icon(
               style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFFF87171),
+                foregroundColor: const Color(0xFF94A3B8),
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 visualDensity: VisualDensity.compact,
               ),
-              icon: const Icon(Icons.delete_outline, size: 16, color: Color(0xFFF87171)),
-              label: const Text('Delete', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              icon: const Icon(Icons.close, size: 16, color: Color(0xFF94A3B8)),
+              label: const Text('Cancel', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
               onPressed: _cancelDrawing,
             ),
             const SizedBox(width: 6),
