@@ -284,4 +284,44 @@ void main() {
     await dbRestarted.init(customPath: dbPath);
     expect(dbRestarted.autoSyncEnabled, isFalse);
   });
+
+  test('hasUserAddedContent correctly detects untouched seed data vs modified data', () async {
+    final db = LocalDatabaseService();
+    await db.init(customPath: dbPath);
+
+    // Untouched seed library
+    expect(db.hasUserAddedContent('lib-workshop-01'), isFalse);
+
+    // Add a custom item to the seed library
+    final repo = LocalInventoryRepository(databaseService: db);
+    await repo.saveItem(
+      Item(
+        id: 'new-custom-tool-1',
+        libraryId: 'lib-workshop-01',
+        name: 'New Custom Tool',
+        itemTypeId: 'type-tool',
+        status: 'stored',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
+    );
+
+    expect(db.hasUserAddedContent('lib-workshop-01'), isTrue);
+  });
+
+  test('discounting untouched seed library removes it completely from local database', () async {
+    final db = LocalDatabaseService();
+    await db.init(customPath: dbPath);
+
+    expect(db.libraries.any((l) => l.id == 'lib-workshop-01'), isTrue);
+    expect(db.hasUserAddedContent('lib-workshop-01'), isFalse);
+
+    // Simulate discounting the untouched generic library
+    await db.removeLibrary('lib-workshop-01', enqueueSync: false);
+
+    expect(db.libraries.any((l) => l.id == 'lib-workshop-01'), isFalse);
+    expect(db.locations.any((loc) => loc.libraryId == 'lib-workshop-01'), isFalse);
+    expect(db.items.any((item) => item.libraryId == 'lib-workshop-01'), isFalse);
+    expect(db.syncQueue.any((q) => q.entityId == 'lib-workshop-01'), isFalse);
+  });
 }

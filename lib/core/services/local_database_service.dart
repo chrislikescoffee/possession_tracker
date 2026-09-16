@@ -251,6 +251,39 @@ class LocalDatabaseService {
     }
   }
 
+  // --- Content & Seeding Inspection ---
+
+  /// Checks if a library has any user-created items or storage locations.
+  /// Used to identify untouched placeholder/seed demo libraries when signing in.
+  bool hasUserAddedContent(String libraryId) {
+    const seedItemIds = {
+      'item-10mm-socket',
+      'item-ratchet',
+      'item-impact-driver',
+      'item-laser-level',
+      'item-knipex-pliers',
+    };
+    const seedLocationIds = {
+      'loc-workshop',
+      'loc-bench',
+      'loc-drawer',
+      'loc-socketbox',
+      'loc-livingroom',
+    };
+
+    final libraryItems = _items.where((i) => i.libraryId == libraryId);
+    final hasCustomItems = libraryId == 'lib-workshop-01'
+        ? libraryItems.any((i) => !seedItemIds.contains(i.id))
+        : libraryItems.isNotEmpty;
+
+    final libraryLocs = _locations.where((l) => l.libraryId == libraryId);
+    final hasCustomLocs = libraryId == 'lib-workshop-01'
+        ? libraryLocs.any((l) => !seedLocationIds.contains(l.id))
+        : libraryLocs.isNotEmpty;
+
+    return hasCustomItems || hasCustomLocs;
+  }
+
   // --- Mutation Helpers ---
 
   Future<void> upsertLibrary(Library library, {bool enqueueSync = true}) async {

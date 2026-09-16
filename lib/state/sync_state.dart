@@ -6,6 +6,7 @@ import '../models/sync_model.dart';
 import 'item_state.dart';
 import 'item_type_state.dart';
 import 'library_state.dart';
+import 'repository_provider.dart';
 import 'storage_state.dart';
 
 final cloudSyncServiceProvider = Provider<CloudSyncService>((ref) {
@@ -73,10 +74,26 @@ class SyncStatusNotifier extends Notifier<SyncStatusInfo> {
   void startRealtime() {
     final syncService = ref.read(cloudSyncServiceProvider);
     syncService.startRealtimeSubscription(
-      onRemoteChange: () {
+      onRemoteChange: () async {
         checkStatus();
         ref.invalidate(librariesProvider);
-        ref.invalidate(selectedLibraryProvider);
+
+        final libraries = await ref.read(repositoryProvider).getLibraries();
+        final currentSelected = ref.read(selectedLibraryProvider).value;
+        final shouldSwitch = currentSelected == null ||
+            currentSelected.id == 'lib-workshop-01' ||
+            !libraries.any((l) => l.id == currentSelected.id);
+
+        if (shouldSwitch && libraries.isNotEmpty) {
+          final preferred = libraries
+                  .where((l) => l.id != 'lib-workshop-01')
+                  .firstOrNull ??
+              libraries.first;
+          ref.read(selectedLibraryProvider.notifier).selectLibrary(preferred);
+        } else {
+          ref.invalidate(selectedLibraryProvider);
+        }
+
         ref.invalidate(allStorageLocationsProvider);
         ref.invalidate(storageLocationsProvider(null));
         ref.invalidate(libraryItemsProvider);
@@ -126,7 +143,23 @@ class SyncStatusNotifier extends Notifier<SyncStatusInfo> {
     if (result.state == SyncState.synced || result.state == SyncState.pendingSync) {
       // Invalidate entity providers so UI refreshes with any pulled data
       ref.invalidate(librariesProvider);
-      ref.invalidate(selectedLibraryProvider);
+
+      final libraries = await ref.read(repositoryProvider).getLibraries();
+      final currentSelected = ref.read(selectedLibraryProvider).value;
+      final shouldSwitch = currentSelected == null ||
+          currentSelected.id == 'lib-workshop-01' ||
+          !libraries.any((l) => l.id == currentSelected.id);
+
+      if (shouldSwitch && libraries.isNotEmpty) {
+        final preferred = libraries
+                .where((l) => l.id != 'lib-workshop-01')
+                .firstOrNull ??
+            libraries.first;
+        ref.read(selectedLibraryProvider.notifier).selectLibrary(preferred);
+      } else {
+        ref.invalidate(selectedLibraryProvider);
+      }
+
       ref.invalidate(allStorageLocationsProvider);
       ref.invalidate(storageLocationsProvider(null));
       ref.invalidate(libraryItemsProvider);

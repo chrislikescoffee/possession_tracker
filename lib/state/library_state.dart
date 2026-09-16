@@ -30,14 +30,19 @@ class SelectedLibraryNotifier extends AsyncNotifier<Library?> {
       if (Supabase.instance.isInitialized) {
         final currentUser = Supabase.instance.client.auth.currentUser;
         if (currentUser != null) {
-          final owned = list.where((l) => l.ownerId == currentUser.id).firstOrNull;
-          if (owned != null) return owned;
+          final ownedNonSeed = list
+              .where((l) => l.ownerId == currentUser.id && l.id != 'lib-workshop-01')
+              .firstOrNull;
+          if (ownedNonSeed != null) return ownedNonSeed;
 
           final nonSeed = list.where((l) => l.id != 'lib-workshop-01').firstOrNull;
           if (nonSeed != null) return nonSeed;
         }
       }
     } catch (_) {}
+
+    final nonSeed = list.where((l) => l.id != 'lib-workshop-01').firstOrNull;
+    if (nonSeed != null) return nonSeed;
 
     return list.first;
   }

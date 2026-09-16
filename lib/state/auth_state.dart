@@ -1,5 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'item_state.dart';
+import 'item_type_state.dart';
+import 'library_state.dart';
+import 'storage_state.dart';
 import 'sync_state.dart';
 
 class AuthNotifier extends Notifier<User?> {
@@ -77,6 +81,12 @@ class AuthNotifier extends Notifier<User?> {
     }
     state = null;
     await ref.read(syncStatusProvider.notifier).checkStatus();
+    ref.invalidate(librariesProvider);
+    ref.invalidate(selectedLibraryProvider);
+    ref.invalidate(allStorageLocationsProvider);
+    ref.invalidate(storageLocationsProvider(null));
+    ref.invalidate(libraryItemsProvider);
+    ref.invalidate(itemTypesProvider);
   }
 }
 

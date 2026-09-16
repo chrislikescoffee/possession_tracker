@@ -161,6 +161,11 @@ class CloudSyncService {
         try {
           switch (item.entityType) {
             case SyncEntityType.library:
+              // Do not push generic seed demo library if user never added anything to it
+              if (item.entityId == 'lib-workshop-01' && !db.hasUserAddedContent('lib-workshop-01')) {
+                syncedQueueIds.add(item.id);
+                break;
+              }
               if (item.operation == SyncOperation.upsert && item.payload != null) {
                 final payload = Map<String, dynamic>.from(item.payload!);
                 payload['owner_id'] = currentUser.id;
@@ -241,8 +246,46 @@ class CloudSyncService {
 
       try {
         final remoteLibs = await _client!.from('libraries').select();
-        for (final json in (remoteLibs as List)) {
-          final remoteLib = Library.fromJson(json as Map<String, dynamic>);
+        final remoteList = (remoteLibs as List)
+            .map((json) => Library.fromJson(json as Map<String, dynamic>))
+            .toList();
+
+        final genuineRemoteLibs =
+            remoteList.where((l) => l.id != 'lib-workshop-01').toList();
+
+        // If the user has genuine cloud libraries, discount any untouched generic demo library
+        if (genuineRemoteLibs.isNotEmpty) {
+          if (db.libraries.any((l) => l.id == 'lib-workshop-01') &&
+              !db.hasUserAddedContent('lib-workshop-01')) {
+            await db.removeLibrary('lib-workshop-01', enqueueSync: false);
+
+            // Clean up from cloud if it was previously pushed mistakenly
+            if (remoteList.any((l) => l.id == 'lib-workshop-01')) {
+              try {
+                await _client!.from('lending_records').delete().eq('library_id', 'lib-workshop-01');
+                await _client!.from('items').delete().eq('library_id', 'lib-workshop-01');
+                await _client!.from('storage_locations').delete().eq('library_id', 'lib-workshop-01');
+                await _client!.from('item_types').delete().eq('library_id', 'lib-workshop-01');
+                await _client!.from('libraries').delete().eq('id', 'lib-workshop-01');
+              } catch (_) {}
+            }
+          }
+
+          // Also remove any empty local placeholder library that has no content and is not in remote
+          final localLibsToCheck = List<Library>.from(db.libraries);
+          for (final localLib in localLibsToCheck) {
+            final existsInRemote = genuineRemoteLibs.any((r) => r.id == localLib.id);
+            if (!existsInRemote && !db.hasUserAddedContent(localLib.id)) {
+              await db.removeLibrary(localLib.id, enqueueSync: false);
+            }
+          }
+        }
+
+        for (final remoteLib in remoteList) {
+          // Skip seed demo library if genuine libraries exist and seed was untouched
+          if (remoteLib.id == 'lib-workshop-01' && genuineRemoteLibs.isNotEmpty) {
+            continue;
+          }
           // Skip if user intentionally deleted it locally without deleting online backup
           if (!db.locallyDeletedLibraryIds.contains(remoteLib.id)) {
             await db.upsertLibrary(remoteLib, enqueueSync: false);
@@ -336,6 +379,10 @@ class CloudSyncService {
 
     for (final lib in db.libraries) {
       if (db.locallyDeletedLibraryIds.contains(lib.id)) continue;
+      // Do not push generic seed demo library if user never added anything to it
+      if (lib.id == 'lib-workshop-01' && !db.hasUserAddedContent(lib.id)) {
+        continue;
+      }
       try {
         final libPayload = lib.toJson();
         libPayload['owner_id'] = currentUser.id;
