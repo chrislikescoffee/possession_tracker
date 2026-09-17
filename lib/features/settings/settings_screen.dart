@@ -186,23 +186,26 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _showAuthDialog(BuildContext context, WidgetRef ref) async {
+  Future<void> _showAuthDialog(BuildContext context, WidgetRef ref, {bool initialSignUp = false}) async {
     final emailController = TextEditingController();
     final passwordController = TextEditingController();
-    var isSignUp = false;
+    var isSignUp = initialSignUp;
     var isLoading = false;
     String? errorText;
+
+    final theme = Theme.of(context);
 
     await showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) => AlertDialog(
-          backgroundColor: const Color(0xFF1E293B),
+          backgroundColor: theme.cardTheme.color ?? theme.colorScheme.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
             children: [
-              Icon(isSignUp ? Icons.person_add : Icons.login, color: const Color(0xFF38BDF8), size: 22),
+              Icon(isSignUp ? Icons.person_add : Icons.login, color: theme.colorScheme.primary, size: 22),
               const SizedBox(width: 8),
-              Text(isSignUp ? 'Create Account' : 'Sign In', style: const TextStyle(color: Colors.white, fontSize: 18)),
+              Text(isSignUp ? 'Create Account' : 'Sign In', style: TextStyle(color: theme.textTheme.titleLarge?.color, fontSize: 18, fontWeight: FontWeight.bold)),
             ],
           ),
           content: SingleChildScrollView(
@@ -210,17 +213,80 @@ class SettingsScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Toggle tab
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: theme.scaffoldBackgroundColor,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: theme.dividerColor),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() {
+                            isSignUp = false;
+                            errorText = null;
+                          }),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: !isSignUp ? theme.colorScheme.primary : Colors.transparent,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              'Sign In',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: !isSignUp ? theme.colorScheme.onPrimary : theme.textTheme.bodyMedium?.color,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() {
+                            isSignUp = true;
+                            errorText = null;
+                          }),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: isSignUp ? theme.colorScheme.primary : Colors.transparent,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              'Create Account',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: isSignUp ? theme.colorScheme.onPrimary : theme.textTheme.bodyMedium?.color,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
                 Text(
                   isSignUp
                       ? 'Create an account to securely sync and access your storage inventory from any device.'
-                      : 'Sign in to access your synchronized inventory.',
-                  style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                      : 'Sign in to access your synchronized inventory across your devices.',
+                  style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
                 ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: emailController,
                   keyboardType: TextInputType.emailAddress,
-                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                  style: TextStyle(color: theme.textTheme.bodyLarge?.color, fontSize: 13),
                   decoration: const InputDecoration(
                     labelText: 'Email Address',
                     prefixIcon: Icon(Icons.email_outlined),
@@ -231,7 +297,7 @@ class SettingsScreen extends ConsumerWidget {
                 TextField(
                   controller: passwordController,
                   obscureText: true,
-                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                  style: TextStyle(color: theme.textTheme.bodyLarge?.color, fontSize: 13),
                   decoration: const InputDecoration(
                     labelText: 'Password',
                     prefixIcon: Icon(Icons.lock_outline),
@@ -239,25 +305,29 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                 ),
                 if (errorText != null) ...[
-                  const SizedBox(height: 10),
-                  Text(
-                    errorText!,
-                    style: const TextStyle(color: Color(0xFFEF4444), fontSize: 12),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.error_outline, size: 16, color: Color(0xFFEF4444)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            errorText!,
+                            style: const TextStyle(color: Color(0xFFEF4444), fontSize: 12),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
-                const SizedBox(height: 12),
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      isSignUp = !isSignUp;
-                      errorText = null;
-                    });
-                  },
-                  child: Text(
-                    isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Create one",
-                    style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 12),
-                  ),
-                ),
               ],
             ),
           ),
@@ -267,7 +337,10 @@ class SettingsScreen extends ConsumerWidget {
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.colorScheme.primary,
+                foregroundColor: theme.colorScheme.onPrimary,
+              ),
               onPressed: isLoading
                   ? null
                   : () async {
@@ -304,7 +377,12 @@ class SettingsScreen extends ConsumerWidget {
                       } catch (e) {
                         setState(() {
                           isLoading = false;
-                          errorText = e.toString().replaceAll('Exception:', '').trim();
+                          final raw = e.toString().replaceAll('Exception:', '').trim();
+                          if (!isSignUp && (raw.contains('Invalid login credentials') || raw.contains('invalid_credentials'))) {
+                            errorText = 'Invalid email or password. If you have not created an account yet, switch to "Create Account" above.';
+                          } else {
+                            errorText = raw;
+                          }
                         });
                       }
                     },
@@ -811,13 +889,23 @@ class SettingsScreen extends ConsumerWidget {
                               ],
                             ),
                           ),
+                          OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: theme.colorScheme.primary,
+                              side: BorderSide(color: theme.colorScheme.primary),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            ),
+                            onPressed: () => _showAuthDialog(context, ref, initialSignUp: true),
+                            child: const Text('Create Account', style: TextStyle(fontSize: 12)),
+                          ),
+                          const SizedBox(width: 8),
                           ElevatedButton(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: theme.colorScheme.primary,
                               foregroundColor: theme.colorScheme.onPrimary,
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             ),
-                            onPressed: () => _showAuthDialog(context, ref),
+                            onPressed: () => _showAuthDialog(context, ref, initialSignUp: false),
                             child: const Text('Sign In', style: TextStyle(fontSize: 12)),
                           ),
                         ],
