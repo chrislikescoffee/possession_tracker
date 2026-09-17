@@ -550,6 +550,7 @@ class SettingsScreen extends ConsumerWidget {
     final autoSyncEnabled = ref.watch(autoSyncProvider);
     final currentUser = ref.watch(authProvider);
     final itemTypesAsync = ref.watch(itemTypesProvider);
+    final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -755,13 +756,13 @@ class SettingsScreen extends ConsumerWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
+                        color: theme.scaffoldBackgroundColor,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFF334155)),
+                        border: Border.all(color: theme.dividerColor),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.account_circle, size: 22, color: Color(0xFF38BDF8)),
+                          Icon(Icons.account_circle, size: 22, color: theme.colorScheme.primary),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Column(
@@ -770,7 +771,7 @@ class SettingsScreen extends ConsumerWidget {
                                 const Text('Signed In Account', style: TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
                                 Text(
                                   currentUser.email ?? currentUser.id,
-                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: theme.textTheme.bodyLarge?.color ?? Colors.white),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ],
@@ -793,26 +794,27 @@ class SettingsScreen extends ConsumerWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
+                        color: theme.scaffoldBackgroundColor,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFF334155)),
+                        border: Border.all(color: theme.dividerColor),
                       ),
                       child: Row(
                         children: [
                           const Icon(Icons.cloud_off, size: 20, color: Color(0xFF94A3B8)),
                           const SizedBox(width: 10),
-                          const Expanded(
+                          Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('Local Only Mode', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
-                                Text('Sign in to sync your inventory to the cloud', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                                Text('Local Only Mode', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: theme.textTheme.bodyLarge?.color ?? Colors.white)),
+                                const Text('Sign in to sync your inventory to the cloud', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
                               ],
                             ),
                           ),
                           ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF6366F1),
+                              backgroundColor: theme.colorScheme.primary,
+                              foregroundColor: theme.colorScheme.onPrimary,
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             ),
                             onPressed: () => _showAuthDialog(context, ref),
@@ -823,7 +825,7 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 10),
                   ],
-                  const Divider(color: Color(0xFF334155), height: 20),
+                  Divider(color: theme.dividerColor, height: 20),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text(
@@ -1166,7 +1168,7 @@ class SettingsScreen extends ConsumerWidget {
                                     ),
                                 ],
                               ),
-                              if (type.fields.isNotEmpty) ...[
+                               if (type.fields.isNotEmpty) ...[
                                 const SizedBox(height: 6),
                                 Wrap(
                                   spacing: 6,
@@ -1175,25 +1177,25 @@ class SettingsScreen extends ConsumerWidget {
                                     return Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF1E293B),
+                                        color: theme.scaffoldBackgroundColor,
                                         borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(color: const Color(0xFF334155)),
+                                        border: Border.all(color: theme.dividerColor),
                                       ),
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Text(
                                             field.name,
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontSize: 11,
                                               fontWeight: FontWeight.w600,
-                                              color: Colors.white,
+                                              color: theme.textTheme.bodyMedium?.color ?? Colors.white,
                                             ),
                                           ),
                                           const SizedBox(width: 4),
                                           Text(
                                             field.unit != null ? '(${field.unit})' : '[${field.type.displayName}]',
-                                            style: const TextStyle(fontSize: 10, color: Color(0xFF818CF8)),
+                                            style: TextStyle(fontSize: 10, color: theme.colorScheme.primary),
                                           ),
                                         ],
                                       ),

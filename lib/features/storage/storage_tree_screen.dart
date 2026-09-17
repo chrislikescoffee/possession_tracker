@@ -63,6 +63,8 @@ class _StorageTreeScreenState extends ConsumerState<StorageTreeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final selectedLib = ref.watch(selectedLibraryProvider).value;
     final rootLocationsAsync = ref.watch(storageLocationsProvider(null));
     final allLocationsAsync = ref.watch(allStorageLocationsProvider);
@@ -115,88 +117,88 @@ class _StorageTreeScreenState extends ConsumerState<StorageTreeScreen> {
           // Search & Filter Toolbar
           Container(
             padding: const EdgeInsets.all(14),
-            color: const Color(0xFF131B2E),
-            child: Column(
-              children: [
-                TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Search storage areas...',
-                    prefixIcon: const Icon(Icons.search),
-                    suffixIcon: _searchController.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear, size: 18),
-                            onPressed: () {
-                              _searchController.clear();
-                              setState(() {});
-                            },
-                          )
-                        : null,
-                  ),
-                  onChanged: (_) => setState(() {}),
-                ),
-                const SizedBox(height: 10),
-
-                // Controls Row: Sort dropdown, direction toggle, grid/list toggle
-                Row(
+            color: theme.scaffoldBackgroundColor,
+                child: Column(
                   children: [
-                    // Sort Dropdown Menu
-                    PopupMenuButton<String>(
-                      tooltip: 'Sort Options',
-                      onSelected: (val) {
-                        setState(() {
-                          _sortBy = val;
-                          _sortAscending = val == 'name';
-                        });
-                      },
-                      itemBuilder: (ctx) => [
-                        const PopupMenuItem(
-                          value: 'name',
-                          child: Text('Sort by Name (A-Z)'),
-                        ),
-                        const PopupMenuItem(
-                          value: 'date',
-                          child: Text('Sort by Date Added'),
-                        ),
-                        const PopupMenuItem(
-                          value: 'subareas',
-                          child: Text('Sort by Sub-Area Count'),
-                        ),
-                        const PopupMenuItem(
-                          value: 'items',
-                          child: Text('Sort by Item Count'),
-                        ),
-                        const PopupMenuItem(
-                          value: 'polygons',
-                          child: Text('Sort by Mapped Polygons'),
-                        ),
-                      ],
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1E293B),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFF334155)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.sort, size: 15, color: Color(0xFF38BDF8)),
-                            const SizedBox(width: 6),
-                            Text(
-                              _getSortLabel(_sortBy),
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFFF1F5F9),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            const Icon(Icons.arrow_drop_down, size: 16, color: Color(0xFF94A3B8)),
-                          ],
-                        ),
+                    TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: 'Search storage areas...',
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: _searchController.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear, size: 18),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  setState(() {});
+                                },
+                              )
+                            : null,
                       ),
+                      onChanged: (_) => setState(() {}),
                     ),
+                    const SizedBox(height: 10),
+
+                    // Controls Row: Sort dropdown, direction toggle, grid/list toggle
+                    Row(
+                      children: [
+                        // Sort Dropdown Menu
+                        PopupMenuButton<String>(
+                          tooltip: 'Sort Options',
+                          onSelected: (val) {
+                            setState(() {
+                              _sortBy = val;
+                              _sortAscending = val == 'name';
+                            });
+                          },
+                          itemBuilder: (ctx) => [
+                            const PopupMenuItem(
+                              value: 'name',
+                              child: Text('Sort by Name (A-Z)'),
+                            ),
+                            const PopupMenuItem(
+                              value: 'date',
+                              child: Text('Sort by Date Added'),
+                            ),
+                            const PopupMenuItem(
+                              value: 'subareas',
+                              child: Text('Sort by Sub-Area Count'),
+                            ),
+                            const PopupMenuItem(
+                              value: 'items',
+                              child: Text('Sort by Item Count'),
+                            ),
+                            const PopupMenuItem(
+                              value: 'polygons',
+                              child: Text('Sort by Mapped Polygons'),
+                            ),
+                          ],
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: theme.cardTheme.color ?? colorScheme.surface,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: colorScheme.outline.withValues(alpha: 0.3)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.sort, size: 15, color: colorScheme.secondary),
+                                const SizedBox(width: 6),
+                                Text(
+                                  _getSortLabel(_sortBy),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: colorScheme.onSurface,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(Icons.arrow_drop_down, size: 16, color: colorScheme.onSurface.withValues(alpha: 0.6)),
+                              ],
+                            ),
+                          ),
+                        ),
 
                     const SizedBox(width: 6),
 
@@ -240,11 +242,11 @@ class _StorageTreeScreenState extends ConsumerState<StorageTreeScreen> {
                       children: [
                         Container(
                           padding: const EdgeInsets.all(20),
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF1E293B),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.folder_open, size: 48, color: Color(0xFF6366F1)),
+                          child: Icon(Icons.folder_open, size: 48, color: Theme.of(context).colorScheme.primary),
                         ),
                         const SizedBox(height: 16),
                         const Text(
@@ -252,9 +254,9 @@ class _StorageTreeScreenState extends ConsumerState<StorageTreeScreen> {
                           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 8),
-                        const Text(
+                        Text(
                           'Create your first storage area (e.g. Workshop, Living Room, Attic)',
-                          style: TextStyle(color: Color(0xFF94A3B8)),
+                          style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
                         ),
                       ],
                     ),
@@ -391,13 +393,17 @@ class _StorageLocationTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final cardBg = theme.cardTheme.color ?? theme.colorScheme.surface;
+    final borderColor = theme.dividerColor;
+
     return Card(
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0xFF263352), width: 1),
+        side: BorderSide(color: borderColor, width: 1),
       ),
-      color: const Color(0xFF131B2E),
+      color: cardBg,
       elevation: 2,
       child: InkWell(
         onTap: () => context.go('/storage/${location.id}'),
@@ -415,26 +421,32 @@ class _StorageLocationTile extends ConsumerWidget {
                     imageUrl: location.imageUrl,
                     fit: BoxFit.cover,
                     fallbackWidget: Container(
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
-                          colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+                          colors: [
+                            theme.colorScheme.surface,
+                            theme.scaffoldBackgroundColor,
+                          ],
                         ),
                       ),
-                      child: const Center(
-                        child: Icon(Icons.warehouse_outlined, size: 44, color: Color(0xFF6366F1)),
+                      child: Center(
+                        child: Icon(Icons.warehouse_outlined, size: 44, color: theme.colorScheme.primary),
                       ),
                     ),
                   ),
 
                   // Bottom gradient overlay for readability
                   Container(
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, Color(0x990B0F19)],
+                        colors: [
+                          Colors.transparent,
+                          cardBg.withValues(alpha: 0.8),
+                        ],
                       ),
                     ),
                   ),
@@ -457,10 +469,10 @@ class _StorageLocationTile extends ConsumerWidget {
                           location.name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: theme.colorScheme.onSurface,
                           ),
                         ),
                         if (location.description != null &&
@@ -470,9 +482,9 @@ class _StorageLocationTile extends ConsumerWidget {
                             location.description!,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
-                              color: Color(0xFF94A3B8),
+                              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                             ),
                           ),
                         ],
@@ -521,15 +533,18 @@ class _StorageLocationCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final cardBg = theme.cardTheme.color ?? theme.colorScheme.surface;
+    final borderColor = theme.dividerColor;
     final hasImage = location.imageUrl != null && location.imageUrl!.isNotEmpty;
 
     return Card(
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0xFF263352), width: 1),
+        side: BorderSide(color: borderColor, width: 1),
       ),
-      color: const Color(0xFF131B2E),
+      color: cardBg,
       child: InkWell(
         onTap: () => context.go('/storage/${location.id}'),
         child: Column(
@@ -548,11 +563,14 @@ class _StorageLocationCard extends ConsumerWidget {
                       fit: BoxFit.cover,
                     ),
                     Container(
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
-                          colors: [Colors.transparent, Color(0xCC0B0F19)],
+                          colors: [
+                            Colors.transparent,
+                            cardBg.withValues(alpha: 0.8),
+                          ],
                         ),
                       ),
                     ),
@@ -568,10 +586,10 @@ class _StorageLocationCard extends ConsumerWidget {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                      color: theme.colorScheme.primary.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.folder_outlined, color: Color(0xFF818CF8), size: 22),
+                    child: Icon(Icons.folder_outlined, color: theme.colorScheme.primary, size: 22),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -580,7 +598,11 @@ class _StorageLocationCard extends ConsumerWidget {
                       children: [
                         Text(
                           location.name,
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.onSurface,
+                          ),
                         ),
                         if (location.description != null &&
                             location.description!.trim().isNotEmpty) ...[
@@ -589,7 +611,10 @@ class _StorageLocationCard extends ConsumerWidget {
                             location.description!,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                            ),
                           ),
                         ],
                         const SizedBox(height: 8),

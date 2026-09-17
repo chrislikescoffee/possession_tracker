@@ -175,15 +175,20 @@ class _AddEditLocationDialogState extends State<AddEditLocationDialog> {
     final hasImage = _imageUrlController.text.trim().isNotEmpty;
     final hasDrawnPoints = _polygonPoints != null && _polygonPoints!.isNotEmpty;
 
+    final theme = Theme.of(context);
+    final dialogBg = theme.cardTheme.color ?? theme.colorScheme.surface;
+    final borderColor = theme.dividerColor;
+    final primaryColor = theme.colorScheme.primary;
+
     return AlertDialog(
-      backgroundColor: const Color(0xFF131B2E),
+      backgroundColor: dialogBg,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: Color(0xFF263352)),
+        side: BorderSide(color: borderColor),
       ),
       title: Text(
         isEditing ? 'Edit Storage Location' : 'New Storage Location',
-        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.bold),
       ),
       content: SizedBox(
         width: 440,
@@ -197,19 +202,11 @@ class _AddEditLocationDialogState extends State<AddEditLocationDialog> {
                 TextFormField(
                   controller: _nameController,
                   autofocus: true,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
+                  style: TextStyle(color: theme.colorScheme.onSurface),
+                  decoration: InputDecoration(
                     labelText: 'Location Name *',
-                    labelStyle: TextStyle(color: Color(0xFF94A3B8)),
                     hintText: 'e.g. Shelf A, Tool Box, Cabinet 2',
-                    hintStyle: TextStyle(color: Color(0xFF64748B)),
-                    prefixIcon: Icon(Icons.folder_open, color: Color(0xFF38BDF8)),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFF263352)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFF38BDF8), width: 1.5),
-                    ),
+                    prefixIcon: Icon(Icons.folder_open, color: primaryColor),
                   ),
                   validator: (val) =>
                       (val == null || val.trim().isEmpty) ? 'Please enter a name' : null,
@@ -218,30 +215,22 @@ class _AddEditLocationDialogState extends State<AddEditLocationDialog> {
                 TextFormField(
                   controller: _descController,
                   maxLines: 2,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
+                  style: TextStyle(color: theme.colorScheme.onSurface),
+                  decoration: InputDecoration(
                     labelText: 'Description / Notes',
-                    labelStyle: TextStyle(color: Color(0xFF94A3B8)),
                     hintText: 'e.g. Second drawer down, holds metric tools',
-                    hintStyle: TextStyle(color: Color(0xFF64748B)),
-                    prefixIcon: Icon(Icons.notes, color: Color(0xFF94A3B8)),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFF263352)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFF38BDF8), width: 1.5),
-                    ),
+                    prefixIcon: Icon(Icons.notes, color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
                   ),
                 ),
                 const SizedBox(height: 16),
 
                 // Color Choice Palette
-                const Text(
+                Text(
                   'Area Tag Color',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFFE2E8F0),
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -284,23 +273,23 @@ class _AddEditLocationDialogState extends State<AddEditLocationDialog> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
+                    color: theme.scaffoldBackgroundColor,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF263352)),
+                    border: Border.all(color: borderColor),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.qr_code_2_rounded, size: 20, color: Color(0xFF38BDF8)),
+                          Icon(Icons.qr_code_2_rounded, size: 20, color: primaryColor),
                           const SizedBox(width: 8),
-                          const Text(
+                          Text(
                             'Barcode / QR Code',
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFFE2E8F0),
+                              color: theme.colorScheme.onSurface,
                             ),
                           ),
                           const Spacer(),
@@ -347,8 +336,8 @@ class _AddEditLocationDialogState extends State<AddEditLocationDialog> {
                                 children: [
                                   Text(
                                     _barcodeController.text,
-                                    style: const TextStyle(
-                                      color: Colors.white,
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onSurface,
                                       fontWeight: FontWeight.bold,
                                       fontSize: 14,
                                       fontFamily: 'monospace',
@@ -361,8 +350,8 @@ class _AddEditLocationDialogState extends State<AddEditLocationDialog> {
                                         : 'Scanned / Custom code',
                                     style: TextStyle(
                                       color: _barcodeGeneratedAt != null
-                                          ? const Color(0xFF34D399)
-                                          : const Color(0xFF94A3B8),
+                                          ? primaryColor
+                                          : theme.colorScheme.onSurface.withValues(alpha: 0.7),
                                       fontSize: 11,
                                     ),
                                   ),
@@ -379,8 +368,8 @@ class _AddEditLocationDialogState extends State<AddEditLocationDialog> {
                             child: OutlinedButton.icon(
                               style: OutlinedButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(vertical: 10),
-                                side: const BorderSide(color: Color(0xFF38BDF8)),
-                                foregroundColor: const Color(0xFF38BDF8),
+                                side: BorderSide(color: primaryColor),
+                                foregroundColor: primaryColor,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                               ),
                               icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
@@ -402,8 +391,8 @@ class _AddEditLocationDialogState extends State<AddEditLocationDialog> {
                             child: FilledButton.tonalIcon(
                               style: FilledButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(vertical: 10),
-                                backgroundColor: const Color(0xFF06B6D4).withValues(alpha: 0.15),
-                                foregroundColor: const Color(0xFF06B6D4),
+                                backgroundColor: primaryColor.withValues(alpha: 0.15),
+                                foregroundColor: primaryColor,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                               ),
                               icon: const Icon(Icons.auto_awesome_rounded, size: 18),
@@ -452,7 +441,7 @@ class _AddEditLocationDialogState extends State<AddEditLocationDialog> {
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.close, size: 16, color: Color(0xFF94A3B8)),
+                            icon: Icon(Icons.close, size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
                             tooltip: 'Clear Polygon',
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
@@ -468,12 +457,12 @@ class _AddEditLocationDialogState extends State<AddEditLocationDialog> {
                     width: double.infinity,
                     child: FilledButton.icon(
                       style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF06B6D4).withValues(alpha: 0.2),
-                        foregroundColor: const Color(0xFF38BDF8),
+                        backgroundColor: primaryColor.withValues(alpha: 0.2),
+                        foregroundColor: primaryColor,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
-                          side: const BorderSide(color: Color(0xFF06B6D4)),
+                          side: BorderSide(color: primaryColor),
                         ),
                       ),
                       icon: Icon(
@@ -492,26 +481,26 @@ class _AddEditLocationDialogState extends State<AddEditLocationDialog> {
                   // Option: Use cropped area as sub-location photo
                   Container(
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E293B),
+                      color: theme.scaffoldBackgroundColor,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFF263352)),
+                      border: Border.all(color: borderColor),
                     ),
                     child: CheckboxListTile(
                       dense: true,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-                      title: const Text(
+                      title: Text(
                         'Use cropped area as sub-location photo',
                         style: TextStyle(
                           fontSize: 13,
-                          color: Colors.white,
+                          color: theme.colorScheme.onSurface,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      subtitle: const Text(
+                      subtitle: Text(
                         'Automatically crops the drawn bounding box as cover image',
-                        style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                        style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
                       ),
-                      activeColor: const Color(0xFF38BDF8),
+                      activeColor: primaryColor,
                       value: _useCroppedPhoto,
                       onChanged: (val) =>
                           setState(() => _useCroppedPhoto = val ?? true),
@@ -519,9 +508,9 @@ class _AddEditLocationDialogState extends State<AddEditLocationDialog> {
                   ),
                 ] else ...[
                   // Standard standalone photo button for root locations
-                  const Text(
+                  Text(
                     'Location Photograph',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
                   ),
                   const SizedBox(height: 8),
 
@@ -557,12 +546,12 @@ class _AddEditLocationDialogState extends State<AddEditLocationDialog> {
                     child: OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        side: const BorderSide(color: Color(0xFF06B6D4)),
+                        side: BorderSide(color: primaryColor),
                       ),
-                      icon: const Icon(Icons.camera_alt, color: Color(0xFF06B6D4)),
+                      icon: Icon(Icons.camera_alt, color: primaryColor),
                       label: Text(
                         hasImage ? 'Change Photo' : 'Take / Attach Photo',
-                        style: const TextStyle(color: Color(0xFF06B6D4), fontWeight: FontWeight.w600),
+                        style: TextStyle(color: primaryColor, fontWeight: FontWeight.w600),
                       ),
                       onPressed: () async {
                         final picked = await ImagePickerBottomSheet.show(
@@ -584,12 +573,12 @@ class _AddEditLocationDialogState extends State<AddEditLocationDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
+          child: Text('Cancel', style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.7))),
         ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF6366F1),
-            foregroundColor: Colors.white,
+            backgroundColor: primaryColor,
+            foregroundColor: theme.colorScheme.onPrimary,
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),

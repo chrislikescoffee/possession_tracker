@@ -255,13 +255,13 @@ class AppShell extends ConsumerWidget {
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
                                 color: quota.current >= quota.max
-                                    ? Colors.red.withOpacity(0.2)
-                                    : const Color(0xFF1E293B),
+                                    ? Colors.red.withValues(alpha: 0.2)
+                                    : (theme.cardTheme.color ?? colorScheme.surface),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
                                   color: quota.current >= quota.max
                                       ? Colors.red
-                                      : const Color(0xFF334155),
+                                      : colorScheme.primary.withValues(alpha: 0.3),
                                 ),
                               ),
                               child: Text(
@@ -271,7 +271,7 @@ class AppShell extends ConsumerWidget {
                                   fontWeight: FontWeight.bold,
                                   color: quota.current >= quota.max
                                       ? Colors.redAccent
-                                      : const Color(0xFF06B6D4),
+                                      : colorScheme.primary,
                                 ),
                               ),
                             ),

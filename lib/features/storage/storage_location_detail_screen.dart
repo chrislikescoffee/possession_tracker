@@ -765,12 +765,16 @@ class _StorageLocationDetailScreenState
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (ctx) {
+        final theme = Theme.of(ctx);
+        final sheetBg = theme.cardTheme.color ?? theme.colorScheme.surface;
+        final borderColor = theme.dividerColor;
+
         return Container(
-          decoration: const BoxDecoration(
-            color: Color(0xFF0F172A),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          decoration: BoxDecoration(
+            color: sheetBg,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             border: Border(
-              top: BorderSide(color: Color(0xFF334155), width: 1.5),
+              top: BorderSide(color: borderColor, width: 1.5),
             ),
           ),
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
@@ -784,7 +788,7 @@ class _StorageLocationDetailScreenState
                   width: 44,
                   height: 5,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF475569),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
@@ -792,32 +796,32 @@ class _StorageLocationDetailScreenState
               const SizedBox(height: 16),
               Row(
                 children: [
-                  const Icon(Icons.tune, color: Color(0xFF818CF8), size: 22),
+                  Icon(Icons.tune, color: theme.colorScheme.primary, size: 22),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Edit & Map Storage',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: theme.colorScheme.onSurface,
                           ),
                         ),
                         Text(
                           location.name,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: Color(0xFF94A3B8),
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                           ),
                         ),
                       ],
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close, color: Color(0xFF94A3B8)),
+                    icon: Icon(Icons.close, color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
                     onPressed: () => Navigator.of(ctx).pop(),
                   ),
                 ],
@@ -847,13 +851,13 @@ class _StorageLocationDetailScreenState
                 },
               ),
               const SizedBox(height: 12),
-              const Divider(color: Color(0xFF334155), height: 1),
+              Divider(color: borderColor, height: 1),
               const SizedBox(height: 12),
 
               // Option 4: Edit Details
               _buildDrawerActionTile(
                 icon: Icons.edit_outlined,
-                iconColor: const Color(0xFF94A3B8),
+                iconColor: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                 title: 'Edit Details',
                 subtitle: 'Rename container or change description',
                 onTap: () async {
@@ -916,7 +920,6 @@ class _StorageLocationDetailScreenState
                   final confirm = await showDialog<bool>(
                     context: context,
                     builder: (dCtx) => AlertDialog(
-                      backgroundColor: const Color(0xFF1E293B),
                       title: const Text('Delete Location?'),
                       content: Text(
                         'Are you sure you want to delete "${location.name}" and all child sub-containers?',
@@ -961,8 +964,9 @@ class _StorageLocationDetailScreenState
     required String subtitle,
     required VoidCallback onTap,
   }) {
+    final theme = Theme.of(context);
     return Material(
-      color: const Color(0xFF1E293B),
+      color: theme.scaffoldBackgroundColor,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
@@ -986,24 +990,24 @@ class _StorageLocationDetailScreenState
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: Colors.white,
+                        color: theme.colorScheme.onSurface,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF94A3B8),
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                       ),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, size: 18, color: Color(0xFF64748B)),
+              Icon(Icons.chevron_right, size: 18, color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
             ],
           ),
         ),
@@ -1025,12 +1029,16 @@ class _StorageLocationDetailScreenState
       snap: true,
       snapSizes: const [0.08, 0.45, 0.85],
       builder: (context, scrollController) {
+        final theme = Theme.of(context);
+        final panelBg = theme.cardTheme.color ?? theme.colorScheme.surface;
+        final borderColor = theme.dividerColor;
+
         return Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF0F172A),
+            color: panelBg,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            border: const Border(
-              top: BorderSide(color: Color(0xFF334155), width: 1.5),
+            border: Border(
+              top: BorderSide(color: borderColor, width: 1.5),
             ),
             boxShadow: [
               BoxShadow(
@@ -1051,7 +1059,7 @@ class _StorageLocationDetailScreenState
                   height: 5,
                   margin: const EdgeInsets.only(bottom: 8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF64748B),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
@@ -1059,24 +1067,24 @@ class _StorageLocationDetailScreenState
               // Header bar when collapsed / preview
               Row(
                 children: [
-                  const Icon(Icons.layers_outlined,
-                      color: Color(0xFF818CF8), size: 18),
+                  Icon(Icons.layers_outlined,
+                      color: theme.colorScheme.primary, size: 18),
                   const SizedBox(width: 8),
                   Text(
                     'Storage (${childLocations.length})  •  Items (${items.length})',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFFE2E8F0),
+                      color: theme.colorScheme.onSurface,
                     ),
                   ),
                   const Spacer(),
-                  const Icon(Icons.unfold_more,
-                      size: 18, color: Color(0xFF94A3B8)),
+                  Icon(Icons.unfold_more,
+                      size: 18, color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
                 ],
               ),
               const SizedBox(height: 12),
-              const Divider(color: Color(0xFF1E293B), height: 1),
+              Divider(color: borderColor, height: 1),
 
               // Section 1: Storage (Collapsed by default)
               Theme(
@@ -1089,10 +1097,10 @@ class _StorageLocationDetailScreenState
                       size: 20, color: Color(0xFF06B6D4)),
                   title: Text(
                     'Storage (${childLocations.length})',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: theme.colorScheme.onSurface,
                     ),
                   ),
                   trailing: Row(
@@ -1108,7 +1116,7 @@ class _StorageLocationDetailScreenState
                             style: TextStyle(fontSize: 12)),
                         onPressed: () => _onAddAreaPressed(location),
                       ),
-                      const Icon(Icons.expand_more, color: Color(0xFF94A3B8)),
+                      Icon(Icons.expand_more, color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
                     ],
                   ),
                   children: [
@@ -1129,8 +1137,8 @@ class _StorageLocationDetailScreenState
                           runSpacing: 8,
                           children: childLocations.map((sub) {
                             return ActionChip(
-                              backgroundColor: const Color(0xFF1E293B),
-                              side: const BorderSide(color: Color(0xFF334155)),
+                              backgroundColor: theme.scaffoldBackgroundColor,
+                              side: BorderSide(color: borderColor),
                               avatar: const Icon(
                                 Icons.folder_outlined,
                                 size: 16,
@@ -1138,8 +1146,8 @@ class _StorageLocationDetailScreenState
                               ),
                               label: Text(
                                 sub.name,
-                                style: const TextStyle(
-                                    color: Colors.white, fontSize: 12),
+                                style: TextStyle(
+                                    color: theme.colorScheme.onSurface, fontSize: 12),
                               ),
                               onPressed: () =>
                                   context.go('/storage/${sub.id}'),
@@ -1151,7 +1159,7 @@ class _StorageLocationDetailScreenState
                 ),
               ),
 
-              const Divider(color: Color(0xFF1E293B), height: 1),
+              Divider(color: borderColor, height: 1),
 
               // Section 2: Items stored here (Collapsed by default)
               Theme(
@@ -1164,10 +1172,10 @@ class _StorageLocationDetailScreenState
                       size: 20, color: Color(0xFF10B981)),
                   title: Text(
                     'Items (${items.length})',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: theme.colorScheme.onSurface,
                     ),
                   ),
                   trailing: Row(
@@ -1184,7 +1192,7 @@ class _StorageLocationDetailScreenState
                         onPressed: () =>
                             _onAddItemPressed(location, selectedLib),
                       ),
-                      const Icon(Icons.expand_more, color: Color(0xFF94A3B8)),
+                      Icon(Icons.expand_more, color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
                     ],
                   ),
                   children: [
@@ -1214,20 +1222,21 @@ class _StorageLocationDetailScreenState
 
                           return ListTile(
                             dense: true,
-                            tileColor: const Color(0xFF182238),
+                            tileColor: theme.scaffoldBackgroundColor,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
-                              side: const BorderSide(
-                                  color: Color(0xFF263352)),
+                              side: BorderSide(
+                                  color: borderColor),
                             ),
-                            leading: const Icon(Icons.inventory_2,
-                                color: Color(0xFF818CF8), size: 18),
+                            leading: Icon(Icons.inventory_2,
+                                color: theme.colorScheme.primary, size: 18),
                             title: Row(
                               children: [
                                 Expanded(
                                   child: Text(
                                     it.name,
-                                    style: const TextStyle(
+                                    style: TextStyle(
+                                        color: theme.colorScheme.onSurface,
                                         fontWeight: FontWeight.w600,
                                         fontSize: 13),
                                   ),
@@ -1331,10 +1340,10 @@ class _StorageLocationDetailScreenState
           // Header
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: const BoxDecoration(
-              color: Color(0xFF131B2E),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardTheme.color ?? Theme.of(context).colorScheme.surface,
               border: Border(
-                bottom: BorderSide(color: Color(0xFF263352), width: 1),
+                bottom: BorderSide(color: Theme.of(context).dividerColor, width: 1),
               ),
             ),
             child: Column(
@@ -1342,10 +1351,10 @@ class _StorageLocationDetailScreenState
               children: [
                 Text(
                   location.name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -1355,9 +1364,9 @@ class _StorageLocationDetailScreenState
                   const SizedBox(height: 3),
                   Text(
                     location.description!,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: Color(0xFF94A3B8),
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -1369,12 +1378,12 @@ class _StorageLocationDetailScreenState
 
           // Tab Bar with counts directly beside headings
           Container(
-            color: const Color(0xFF111827),
+            color: Theme.of(context).scaffoldBackgroundColor,
             child: TabBar(
-              indicatorColor: const Color(0xFF6366F1),
+              indicatorColor: Theme.of(context).colorScheme.primary,
               indicatorWeight: 3,
-              labelColor: Colors.white,
-              unselectedLabelColor: const Color(0xFF94A3B8),
+              labelColor: Theme.of(context).colorScheme.primary,
+              unselectedLabelColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
               labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
               tabs: [
                 Tab(text: 'Areas (${childLocations.length})'),
@@ -1409,6 +1418,9 @@ class _StorageLocationDetailScreenState
     required StorageLocation location,
     required List<StorageLocation> childLocations,
   }) {
+    final theme = Theme.of(context);
+    final borderColor = theme.dividerColor;
+
     return Column(
       children: [
         Padding(
@@ -1418,10 +1430,10 @@ class _StorageLocationDetailScreenState
             children: [
               Text(
                 'Storage Areas (${childLocations.length})',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFFE2E8F0),
+                  color: theme.colorScheme.onSurface,
                 ),
               ),
               FilledButton.tonalIcon(
@@ -1438,7 +1450,7 @@ class _StorageLocationDetailScreenState
             ],
           ),
         ),
-        const Divider(color: Color(0xFF1E293B), height: 1),
+        Divider(color: borderColor, height: 1),
         Expanded(
           child: childLocations.isEmpty
               ? Center(
@@ -1449,15 +1461,15 @@ class _StorageLocationDetailScreenState
                       children: [
                         const Icon(Icons.folder_open, size: 40, color: Color(0xFF334155)),
                         const SizedBox(height: 8),
-                        const Text(
+                        Text(
                           'No sub-areas yet',
-                          style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                          style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.7), fontSize: 13),
                         ),
                         const SizedBox(height: 4),
-                        const Text(
+                        Text(
                           'Click "+ Add Area" to create a nested storage space.',
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                          style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11),
                         ),
                       ],
                     ),
@@ -1466,7 +1478,7 @@ class _StorageLocationDetailScreenState
               : ListView.separated(
                   itemCount: childLocations.length,
                   separatorBuilder: (context, index) =>
-                      const Divider(color: Color(0xFF1E293B), height: 1),
+                      Divider(color: borderColor, height: 1),
                   itemBuilder: (context, idx) {
                     final sub = childLocations[idx];
                     final matchingRegion = location.regions
@@ -1509,10 +1521,10 @@ class _StorageLocationDetailScreenState
                         ),
                         title: Text(
                           sub.name,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            color: Colors.white,
+                            color: theme.colorScheme.onSurface,
                           ),
                         ),
                         subtitle: sub.description != null && sub.description!.trim().isNotEmpty
@@ -1520,8 +1532,8 @@ class _StorageLocationDetailScreenState
                                 sub.description!,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                    fontSize: 11, color: Color(0xFF94A3B8)),
+                                style: TextStyle(
+                                    fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
                               )
                             : null,
                         trailing: (!isMapped && isHovered)
@@ -1535,12 +1547,12 @@ class _StorageLocationDetailScreenState
                                       borderRadius: BorderRadius.circular(4),
                                       border: Border.all(color: const Color(0xFF64748B).withValues(alpha: 0.4)),
                                     ),
-                                    child: const Text(
+                                    child: Text(
                                       'Not drawn',
                                       style: TextStyle(
                                         fontSize: 10,
                                         fontWeight: FontWeight.w600,
-                                        color: Color(0xFF94A3B8),
+                                        color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                                       ),
                                     ),
                                   ),
@@ -1555,7 +1567,7 @@ class _StorageLocationDetailScreenState
                                   ),
                                 ],
                               )
-                            : const Icon(Icons.chevron_right, size: 16, color: Color(0xFF64748B)),
+                            : Icon(Icons.chevron_right, size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
                         onTap: () => context.go('/storage/${sub.id}'),
                       ),
                     );
@@ -1570,10 +1582,11 @@ class _StorageLocationDetailScreenState
     required Item it,
     required StorageLocation location,
   }) {
+    final theme = Theme.of(context);
     final matchingRegion = location.regions
         .where((r) => r.targetItemId == it.id)
         .firstOrNull;
-    final isMapped = matchingRegion != null || it.polygonPoints.isNotEmpty;
+    final isMapped = matchingRegion != null;
     final isHovered = _hoveredEntityId == it.id;
 
     return MouseRegion(
@@ -1612,10 +1625,10 @@ class _StorageLocationDetailScreenState
             Expanded(
               child: Text(
                 it.name,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: theme.colorScheme.onSurface,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -1652,7 +1665,7 @@ class _StorageLocationDetailScreenState
                 it.description!,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
               )
             : null,
         trailing: (!isMapped && isHovered)
@@ -1666,12 +1679,12 @@ class _StorageLocationDetailScreenState
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(color: const Color(0xFF64748B).withValues(alpha: 0.4)),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Not drawn',
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF94A3B8),
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                       ),
                     ),
                   ),
@@ -1686,7 +1699,7 @@ class _StorageLocationDetailScreenState
                   ),
                 ],
               )
-            : const Icon(Icons.chevron_right, size: 16, color: Color(0xFF64748B)),
+            : Icon(Icons.chevron_right, size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
         onTap: () => context.go('/items/${it.id}'),
       ),
     );
@@ -1698,6 +1711,10 @@ class _StorageLocationDetailScreenState
     required Library? selectedLib,
     required Map<String, String> locationMap,
   }) {
+    final theme = Theme.of(context);
+    final borderColor = theme.dividerColor;
+    final headerBg = theme.cardTheme.color ?? theme.colorScheme.surface;
+
     // Partition items into directly stored vs nested sub-locations
     final directItems = items.where((it) =>
         it.storageLocationId == null ||
@@ -1722,10 +1739,10 @@ class _StorageLocationDetailScreenState
             children: [
               Text(
                 'Items (${items.length})',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFFE2E8F0),
+                  color: theme.colorScheme.onSurface,
                 ),
               ),
               FilledButton.tonalIcon(
@@ -1742,7 +1759,7 @@ class _StorageLocationDetailScreenState
             ],
           ),
         ),
-        const Divider(color: Color(0xFF1E293B), height: 1),
+        Divider(color: borderColor, height: 1),
         Expanded(
           child: items.isEmpty
               ? Center(
@@ -1754,15 +1771,15 @@ class _StorageLocationDetailScreenState
                         const Icon(Icons.inventory_2_outlined,
                             size: 40, color: Color(0xFF334155)),
                         const SizedBox(height: 8),
-                        const Text(
+                        Text(
                           'No items here yet',
-                          style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                          style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.7), fontSize: 13),
                         ),
                         const SizedBox(height: 4),
-                        const Text(
-                          'Click "+ Add Item" or draw an item to tag possessions.',
+                        Text(
+                          'Click "+ Add Item" to store possessions here.',
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                          style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11),
                         ),
                       ],
                     ),
@@ -1775,18 +1792,18 @@ class _StorageLocationDetailScreenState
                       if (subLocationGroups.isNotEmpty)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
-                          color: const Color(0xFF0F172A),
+                          color: headerBg,
                           child: Row(
                             children: [
-                              const Icon(Icons.place_outlined, size: 14, color: Color(0xFF818CF8)),
+                              Icon(Icons.place_outlined, size: 14, color: theme.colorScheme.primary),
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
                                   'Directly in ${location.name}',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFFCBD5E1),
+                                    color: theme.colorScheme.onSurface,
                                   ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -1794,12 +1811,12 @@ class _StorageLocationDetailScreenState
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF818CF8).withValues(alpha: 0.2),
+                                  color: theme.colorScheme.primary.withValues(alpha: 0.2),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Text(
                                   '${directItems.length}',
-                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF818CF8)),
+                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: theme.colorScheme.primary),
                                 ),
                               ),
                             ],
@@ -1807,7 +1824,7 @@ class _StorageLocationDetailScreenState
                         ),
                       for (final it in directItems) ...[
                         _buildItemTile(it: it, location: location),
-                        const Divider(color: Color(0xFF1E293B), height: 1),
+                        Divider(color: borderColor, height: 1),
                       ],
                     ],
 
@@ -1815,7 +1832,7 @@ class _StorageLocationDetailScreenState
                     for (final entry in subLocationGroups.entries) ...[
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
-                        color: const Color(0xFF0F172A),
+                        color: headerBg,
                         child: Row(
                           children: [
                             const Icon(Icons.folder_outlined, size: 14, color: Color(0xFF06B6D4)),
@@ -1823,10 +1840,10 @@ class _StorageLocationDetailScreenState
                             Expanded(
                               child: Text(
                                 locationMap[entry.key] ?? 'Sub-Location',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFFCBD5E1),
+                                  color: theme.colorScheme.onSurface,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -1847,7 +1864,7 @@ class _StorageLocationDetailScreenState
                       ),
                       for (final it in entry.value) ...[
                         _buildItemTile(it: it, location: location),
-                        const Divider(color: Color(0xFF1E293B), height: 1),
+                        Divider(color: borderColor, height: 1),
                       ],
                     ],
                   ],
@@ -1916,15 +1933,15 @@ class _StorageLocationDetailScreenState
                       InkWell(
                         borderRadius: BorderRadius.circular(6),
                         onTap: () => context.go('/storage'),
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                          child: Icon(Icons.home_outlined, size: 20, color: Color(0xFF818CF8)),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          child: Icon(Icons.home_outlined, size: 20, color: Theme.of(context).colorScheme.primary),
                         ),
                       ),
                       for (int i = 0; i < crumbs.length; i++) ...[
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 4),
-                          child: Icon(Icons.chevron_right, size: 16, color: Color(0xFF64748B)),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Icon(Icons.chevron_right, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4)),
                         ),
                         InkWell(
                           borderRadius: BorderRadius.circular(6),
@@ -1941,8 +1958,8 @@ class _StorageLocationDetailScreenState
                                     ? FontWeight.bold
                                     : FontWeight.normal,
                                 color: i == crumbs.length - 1
-                                    ? Colors.white
-                                    : const Color(0xFF94A3B8),
+                                    ? Theme.of(context).colorScheme.onSurface
+                                    : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                               ),
                             ),
                           ),
@@ -1962,8 +1979,8 @@ class _StorageLocationDetailScreenState
                     const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
                 child: FilledButton.icon(
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF6366F1),
-                    foregroundColor: Colors.white,
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
                     padding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 6),
                     visualDensity: VisualDensity.compact,
@@ -2050,16 +2067,16 @@ class _StorageLocationDetailScreenState
                         children: [
                           Expanded(
                             child: Container(
-                              color: const Color(0xFF0B0F19),
+                              color: Theme.of(context).scaffoldBackgroundColor,
                               child: canvasWidget,
                             ),
                           ),
                           Container(
                             width: 380,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFF0F172A),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).cardTheme.color ?? Theme.of(context).colorScheme.surface,
                               border: Border(
-                                left: BorderSide(color: Color(0xFF263352), width: 1.5),
+                                left: BorderSide(color: Theme.of(context).dividerColor, width: 1.5),
                               ),
                             ),
                             child: _buildDesktopInspectorPanel(
@@ -2080,7 +2097,7 @@ class _StorageLocationDetailScreenState
                         Positioned.fill(
                           bottom: _canvasMode == CanvasMode.view ? 56.0 : 0.0,
                           child: Container(
-                            color: const Color(0xFF0B0F19),
+                            color: Theme.of(context).scaffoldBackgroundColor,
                             child: canvasWidget,
                           ),
                         ),

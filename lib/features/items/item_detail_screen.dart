@@ -112,20 +112,20 @@ class ItemDetailScreen extends ConsumerWidget {
                         height: 160,
                         width: double.infinity,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF131B2E),
+                          color: Theme.of(context).cardTheme.color ?? Theme.of(context).colorScheme.surface,
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFF263352)),
+                          border: Border.all(color: Theme.of(context).dividerColor),
                         ),
-                        child: const Center(
-                          child: Icon(Icons.inventory_2_outlined, size: 56, color: Color(0xFF6366F1)),
+                        child: Center(
+                          child: Icon(Icons.inventory_2_outlined, size: 56, color: Theme.of(context).colorScheme.primary),
                         ),
                       ),
                     ),
                     Padding(
                       padding: const EdgeInsets.all(12),
                       child: FloatingActionButton.small(
-                        backgroundColor: const Color(0xFF06B6D4),
-                        foregroundColor: Colors.white,
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor: Theme.of(context).colorScheme.onPrimary,
                         tooltip: 'Take / Update Photo',
                         child: const Icon(Icons.camera_alt, size: 18),
                         onPressed: () async {
@@ -556,7 +556,7 @@ class ItemDetailScreen extends ConsumerWidget {
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.tune, color: Color(0xFF6366F1), size: 20),
+                            Icon(Icons.tune, color: Theme.of(context).colorScheme.primary, size: 20),
                             const SizedBox(width: 8),
                             const Text(
                               'Dynamic Attributes',
@@ -566,15 +566,15 @@ class ItemDetailScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 12),
                         if (item.customFields.isEmpty)
-                          const Text(
+                          Text(
                             'No custom fields added yet. Edit the item to add attributes like Brand, Size, Serial No, or Color.',
-                            style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                            style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
                           )
                         else
                           Table(
                             border: TableBorder(
                               horizontalInside: BorderSide(
-                                color: const Color(0xFF263352).withOpacity(0.6),
+                                color: Theme.of(context).dividerColor,
                                 width: 1,
                               ),
                             ),
@@ -583,15 +583,32 @@ class ItemDetailScreen extends ConsumerWidget {
                               1: FlexColumnWidth(3),
                             },
                             children: item.customFields.entries.map((entry) {
+                              final formattedVal = FieldQueryUtils.formatFieldValue(entry.value);
+                              final isPrice = formattedVal.startsWith(r'$') ||
+                                  formattedVal.startsWith('€') ||
+                                  formattedVal.startsWith('£') ||
+                                  formattedVal.startsWith('¥') ||
+                                  entry.key.toLowerCase().contains('price');
+
+                              final valueBg = isPrice
+                                  ? const Color(0xFF10B981).withValues(alpha: 0.15)
+                                  : Theme.of(context).scaffoldBackgroundColor;
+                              final valueBorder = isPrice
+                                  ? const Color(0xFF10B981).withValues(alpha: 0.4)
+                                  : Theme.of(context).dividerColor;
+                              final valueText = isPrice
+                                  ? const Color(0xFF10B981)
+                                  : Theme.of(context).colorScheme.onSurface;
+
                               return TableRow(
                                 children: [
                                   Padding(
                                     padding: const EdgeInsets.symmetric(vertical: 8),
                                     child: Text(
                                       entry.key,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontWeight: FontWeight.w600,
-                                        color: Color(0xFF94A3B8),
+                                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                                       ),
                                     ),
                                   ),
@@ -602,16 +619,16 @@ class ItemDetailScreen extends ConsumerWidget {
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFF1E293B),
+                                          color: valueBg,
                                           borderRadius: BorderRadius.circular(6),
-                                          border: Border.all(color: const Color(0xFF334155)),
+                                          border: Border.all(color: valueBorder),
                                         ),
                                         child: Text(
-                                          FieldQueryUtils.formatFieldValue(entry.value),
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w600,
+                                          formattedVal,
+                                          style: TextStyle(
+                                            fontWeight: isPrice ? FontWeight.bold : FontWeight.w600,
                                             fontSize: 13,
-                                            color: Color(0xFFF1F5F9),
+                                            color: valueText,
                                           ),
                                         ),
                                       ),

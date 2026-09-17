@@ -49,10 +49,10 @@ class _ItemLocatorScreenState extends ConsumerState<ItemLocatorScreen> {
               // Item Selector Dropdown
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                color: const Color(0xFF131B2E),
+                color: Theme.of(context).cardTheme.color ?? Theme.of(context).colorScheme.surface,
                 child: Row(
                   children: [
-                    const Icon(Icons.my_location, color: Color(0xFF06B6D4), size: 20),
+                    Icon(Icons.my_location, color: Theme.of(context).colorScheme.primary, size: 20),
                     const SizedBox(width: 10),
                     const Text(
                       'Locating:',
@@ -64,7 +64,7 @@ class _ItemLocatorScreenState extends ConsumerState<ItemLocatorScreen> {
                         child: DropdownButton<String>(
                           value: activeItem.id,
                           isExpanded: true,
-                          dropdownColor: const Color(0xFF1E293B),
+                          dropdownColor: Theme.of(context).cardTheme.color ?? Theme.of(context).colorScheme.surface,
                           items: items.map((it) {
                             return DropdownMenuItem(
                               value: it.id,
@@ -195,17 +195,17 @@ class _ItemLocatorDetailView extends ConsumerWidget {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            color: const Color(0xFF0F172A),
+            color: Theme.of(context).scaffoldBackgroundColor,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'NAVIGATION PATHWAY',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.2,
-                    color: Color(0xFF64748B),
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -217,21 +217,21 @@ class _ItemLocatorDetailView extends ConsumerWidget {
                         children: [
                           for (int i = 0; i < crumbs.length; i++) ...[
                             if (i > 0)
-                              const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 6),
-                                child: Icon(Icons.arrow_forward, size: 14, color: Color(0xFF64748B)),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 6),
+                                child: Icon(Icons.arrow_forward, size: 14, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4)),
                               ),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                               decoration: BoxDecoration(
                                 color: i == crumbs.length - 1
-                                    ? const Color(0xFF06B6D4).withOpacity(0.2)
-                                    : const Color(0xFF1E293B),
+                                    ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.18)
+                                    : (Theme.of(context).cardTheme.color ?? Theme.of(context).colorScheme.surface),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
                                   color: i == crumbs.length - 1
-                                      ? const Color(0xFF06B6D4)
-                                      : const Color(0xFF334155),
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Theme.of(context).dividerColor,
                                 ),
                               ),
                               child: Text(
@@ -242,8 +242,8 @@ class _ItemLocatorDetailView extends ConsumerWidget {
                                       ? FontWeight.bold
                                       : FontWeight.normal,
                                   color: i == crumbs.length - 1
-                                      ? const Color(0xFF06B6D4)
-                                      : Colors.white,
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Theme.of(context).colorScheme.onSurface,
                                 ),
                               ),
                             ),
@@ -288,7 +288,7 @@ class _ItemLocatorDetailView extends ConsumerWidget {
                   Container(
                     height: 320,
                     width: double.infinity,
-                    color: Colors.black,
+                    color: Theme.of(context).scaffoldBackgroundColor,
                     child: PolygonCanvasWidget(
                       imageUrl: location.imageUrl,
                       regions: effectiveRegions,
@@ -311,10 +311,10 @@ class _ItemLocatorDetailView extends ConsumerWidget {
                                 Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFF59E0B).withOpacity(0.2),
+                                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
-                                  child: const Icon(Icons.pin_drop, color: Color(0xFFF59E0B)),
+                                  child: Icon(Icons.pin_drop, color: Theme.of(context).colorScheme.primary),
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
@@ -331,9 +331,9 @@ class _ItemLocatorDetailView extends ConsumerWidget {
                                       if (location.description != null)
                                         Text(
                                           location.description!,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontSize: 13,
-                                            color: Color(0xFF94A3B8),
+                                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                                           ),
                                         ),
                                     ],
@@ -342,9 +342,9 @@ class _ItemLocatorDetailView extends ConsumerWidget {
                               ],
                             ),
                             const SizedBox(height: 12),
-                            const Text(
+                            Text(
                               'The exact storage spot is marked above with the glowing amber pulsing halo.',
-                              style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                              style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
                             ),
                           ],
                         ),

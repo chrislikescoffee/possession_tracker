@@ -29,7 +29,7 @@ class AppImageView extends StatelessWidget {
         child: SizedBox(
           width: width,
           height: height,
-          child: fallbackWidget ?? _buildDefaultFallback(),
+          child: fallbackWidget ?? _buildDefaultFallback(context),
         ),
       );
     }
@@ -48,10 +48,10 @@ class AppImageView extends StatelessWidget {
           fit: fit,
           width: width,
           height: height,
-          errorBuilder: (_, __, ___) => fallbackWidget ?? _buildDefaultFallback(),
+          errorBuilder: (ctx, __, ___) => fallbackWidget ?? _buildDefaultFallback(ctx),
         );
       } catch (_) {
-        imageWidget = fallbackWidget ?? _buildDefaultFallback();
+        imageWidget = fallbackWidget ?? _buildDefaultFallback(context);
       }
     } else {
       imageWidget = Image.network(
@@ -61,10 +61,11 @@ class AppImageView extends StatelessWidget {
         height: height,
         loadingBuilder: (context, child, progress) {
           if (progress == null) return child;
+          final theme = Theme.of(context);
           return Container(
             width: width,
             height: height,
-            color: const Color(0xFF131B2E),
+            color: theme.cardTheme.color ?? theme.colorScheme.surface,
             child: const Center(
               child: SizedBox(
                 width: 24,
@@ -74,7 +75,7 @@ class AppImageView extends StatelessWidget {
             ),
           );
         },
-        errorBuilder: (_, __, ___) => fallbackWidget ?? _buildDefaultFallback(),
+        errorBuilder: (ctx, __, ___) => fallbackWidget ?? _buildDefaultFallback(ctx),
       );
     }
 
@@ -84,13 +85,17 @@ class AppImageView extends StatelessWidget {
     );
   }
 
-  Widget _buildDefaultFallback() {
+  Widget _buildDefaultFallback([BuildContext? context]) {
+    final theme = context != null ? Theme.of(context) : null;
+    final bgColor = theme != null ? (theme.cardTheme.color ?? theme.colorScheme.surface) : const Color(0xFF1E293B);
+    final iconColor = theme?.colorScheme.primary.withValues(alpha: 0.6) ?? const Color(0xFF64748B);
+
     return Container(
       width: width,
       height: height,
-      color: const Color(0xFF1E293B),
-      child: const Center(
-        child: Icon(Icons.image_outlined, size: 28, color: Color(0xFF64748B)),
+      color: bgColor,
+      child: Center(
+        child: Icon(Icons.image_outlined, size: 28, color: iconColor),
       ),
     );
   }

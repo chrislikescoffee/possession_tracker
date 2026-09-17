@@ -440,20 +440,20 @@ class _AddEditItemDialogState extends ConsumerState<AddEditItemDialog> {
                     return Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
+                        color: Theme.of(context).cardTheme.color ?? Theme.of(context).colorScheme.surface,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFF334155)),
+                        border: Border.all(color: Theme.of(context).dividerColor),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.category_outlined, size: 20, color: Color(0xFF818CF8)),
+                          Icon(Icons.category_outlined, size: 20, color: Theme.of(context).colorScheme.primary),
                           const SizedBox(width: 8),
                           const Text('Type: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                           Expanded(
                             child: DropdownButton<ItemType>(
                               value: currentSelected,
                               isExpanded: true,
-                              dropdownColor: const Color(0xFF1E293B),
+                              dropdownColor: Theme.of(context).cardTheme.color ?? Theme.of(context).colorScheme.surface,
                               underline: const SizedBox(),
                               items: allTypes.map((t) {
                                 return DropdownMenuItem(
@@ -550,17 +550,17 @@ class _AddEditItemDialogState extends ConsumerState<AddEditItemDialog> {
 
                     return DropdownButtonFormField<String?>(
                       value: _selectedLocationId,
-                      dropdownColor: const Color(0xFF1E293B),
-                      decoration: const InputDecoration(
+                      dropdownColor: Theme.of(context).cardTheme.color ?? Theme.of(context).colorScheme.surface,
+                      decoration: InputDecoration(
                         labelText: 'Assigned Storage Area',
                         hintText: 'Select container or area...',
-                        prefixIcon: Icon(Icons.folder_outlined, color: Color(0xFF38BDF8)),
+                        prefixIcon: Icon(Icons.folder_outlined, color: Theme.of(context).colorScheme.primary),
                       ),
                       isExpanded: true,
                       items: [
-                        const DropdownMenuItem<String?>(
+                        DropdownMenuItem<String?>(
                           value: null,
-                          child: Text('Unassigned / No Area', style: TextStyle(color: Color(0xFF94A3B8))),
+                          child: Text('Unassigned / No Area', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
                         ),
                         ...sortedLocs.map((loc) {
                           final path = FieldQueryUtils.buildLocationBreadcrumb(loc.id, locMap);
@@ -727,23 +727,23 @@ class _AddEditItemDialogState extends ConsumerState<AddEditItemDialog> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
+                    color: Theme.of(context).cardTheme.color ?? Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF334155)),
+                    border: Border.all(color: Theme.of(context).dividerColor),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.qr_code_2_rounded, size: 20, color: Color(0xFF10B981)),
+                          Icon(Icons.qr_code_2_rounded, size: 20, color: Theme.of(context).colorScheme.primary),
                           const SizedBox(width: 8),
-                          const Text(
+                          Text(
                             'Barcode / QR Code',
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFFE2E8F0),
+                              color: Theme.of(context).colorScheme.onSurface,
                             ),
                           ),
                           const Spacer(),
@@ -791,8 +791,8 @@ class _AddEditItemDialogState extends ConsumerState<AddEditItemDialog> {
                                 children: [
                                   Text(
                                     _barcodeController.text,
-                                    style: const TextStyle(
-                                      color: Colors.white,
+                                    style: TextStyle(
+                                      color: Theme.of(context).colorScheme.onSurface,
                                       fontWeight: FontWeight.bold,
                                       fontSize: 14,
                                       fontFamily: 'monospace',
@@ -805,8 +805,8 @@ class _AddEditItemDialogState extends ConsumerState<AddEditItemDialog> {
                                         : 'Scanned / Custom code',
                                     style: TextStyle(
                                       color: _barcodeGeneratedAt != null
-                                          ? const Color(0xFF34D399)
-                                          : const Color(0xFF94A3B8),
+                                          ? Theme.of(context).colorScheme.primary
+                                          : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                                       fontSize: 11,
                                     ),
                                   ),
@@ -819,33 +819,33 @@ class _AddEditItemDialogState extends ConsumerState<AddEditItemDialog> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF0F172A),
+                            color: Theme.of(context).scaffoldBackgroundColor,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFF334155)),
+                            border: Border.all(color: Theme.of(context).dividerColor),
                           ),
                           child: SwitchListTile.adaptive(
                             contentPadding: EdgeInsets.zero,
                             dense: true,
-                            title: const Row(
+                            title: Row(
                               children: [
-                                Icon(Icons.lock_outline_rounded, size: 16, color: Color(0xFF10B981)),
-                                SizedBox(width: 6),
+                                Icon(Icons.lock_outline_rounded, size: 16, color: Theme.of(context).colorScheme.primary),
+                                const SizedBox(width: 6),
                                 Text(
                                   'Must scan in to return',
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFFE2E8F0),
+                                    color: Theme.of(context).colorScheme.onSurface,
                                   ),
                                 ),
                               ],
                             ),
-                            subtitle: const Text(
+                            subtitle: Text(
                               'Requires scanning barcode before returning to home location or from lending.',
-                              style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                              style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
                             ),
                             value: _mustScanIn,
-                            activeColor: const Color(0xFF10B981),
+                            activeColor: Theme.of(context).colorScheme.primary,
                             onChanged: (val) {
                               setState(() => _mustScanIn = val);
                             },

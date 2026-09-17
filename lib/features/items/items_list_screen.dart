@@ -136,7 +136,7 @@ class _ItemsListScreenState extends ConsumerState<ItemsListScreen> {
           // Search & Filter Header
           Container(
             padding: const EdgeInsets.all(14),
-            color: const Color(0xFF131B2E),
+            color: Theme.of(context).cardTheme.color ?? Theme.of(context).colorScheme.surface,
             child: Column(
               children: [
                 TextField(
@@ -257,12 +257,12 @@ class _ItemsListScreenState extends ConsumerState<ItemsListScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF1E293B),
+                              color: Theme.of(context).scaffoldBackgroundColor,
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                 color: _groupBy != 'none'
-                                    ? const Color(0xFF6366F1)
-                                    : const Color(0xFF334155),
+                                    ? Theme.of(context).colorScheme.primary
+                                    : Theme.of(context).dividerColor,
                               ),
                             ),
                             child: Row(
@@ -272,8 +272,8 @@ class _ItemsListScreenState extends ConsumerState<ItemsListScreen> {
                                   Icons.layers_outlined,
                                   size: 15,
                                   color: _groupBy != 'none'
-                                      ? const Color(0xFF818CF8)
-                                      : const Color(0xFF94A3B8),
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                                 ),
                                 const SizedBox(width: 5),
                                 Text(
@@ -282,12 +282,12 @@ class _ItemsListScreenState extends ConsumerState<ItemsListScreen> {
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
                                     color: _groupBy != 'none'
-                                        ? const Color(0xFF818CF8)
-                                        : const Color(0xFFF1F5F9),
+                                        ? Theme.of(context).colorScheme.primary
+                                        : Theme.of(context).colorScheme.onSurface,
                                   ),
                                 ),
                                 const SizedBox(width: 2),
-                                const Icon(Icons.arrow_drop_down, size: 16, color: Color(0xFF94A3B8)),
+                                Icon(Icons.arrow_drop_down, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
                               ],
                             ),
                           ),
@@ -333,25 +333,25 @@ class _ItemsListScreenState extends ConsumerState<ItemsListScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF1E293B),
+                              color: Theme.of(context).scaffoldBackgroundColor,
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: const Color(0xFF334155)),
+                              border: Border.all(color: Theme.of(context).dividerColor),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.sort, size: 15, color: Color(0xFF38BDF8)),
+                                Icon(Icons.sort, size: 15, color: Theme.of(context).colorScheme.primary),
                                 const SizedBox(width: 5),
                                 Text(
                                   _getSortLabel(_sortBy),
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
-                                    color: Color(0xFFF1F5F9),
+                                    color: Theme.of(context).colorScheme.onSurface,
                                   ),
                                 ),
                                 const SizedBox(width: 2),
-                                const Icon(Icons.arrow_drop_down, size: 16, color: Color(0xFF94A3B8)),
+                                Icon(Icons.arrow_drop_down, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
                               ],
                             ),
                           ),
@@ -533,15 +533,16 @@ class _ItemsListScreenState extends ConsumerState<ItemsListScreen> {
         final groupKey = keys[index];
         final groupItems = groups[groupKey]!;
 
+        final theme = Theme.of(context);
         return Container(
           margin: const EdgeInsets.only(bottom: 14),
           decoration: BoxDecoration(
-            color: const Color(0xFF131B2E),
+            color: theme.cardTheme.color ?? theme.colorScheme.surface,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFF263352)),
+            border: Border.all(color: theme.dividerColor),
           ),
           child: Theme(
-            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            data: theme.copyWith(dividerColor: Colors.transparent),
             child: ExpansionTile(
               key: PageStorageKey('group_${groupKey}_$_collapseGeneration'),
               initiallyExpanded: _groupExpandedState[groupKey] ?? !_isAllCollapsed,
@@ -561,15 +562,15 @@ class _ItemsListScreenState extends ConsumerState<ItemsListScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF6366F1).withValues(alpha: 0.2),
+                      color: theme.colorScheme.primary.withValues(alpha: 0.18),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
                       '${groupItems.length}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF818CF8),
+                        color: theme.colorScheme.primary,
                       ),
                     ),
                   ),
@@ -623,6 +624,9 @@ class _ItemTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cardBg = theme.cardTheme.color ?? theme.colorScheme.surface;
+    final borderColor = theme.dividerColor;
     final locBreadcrumb = item.storageLocationId != null
         ? FieldQueryUtils.buildLocationBreadcrumb(item.storageLocationId, locationMap)
         : null;
@@ -631,9 +635,9 @@ class _ItemTile extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0xFF263352), width: 1),
+        side: BorderSide(color: borderColor, width: 1),
       ),
-      color: const Color(0xFF131B2E),
+      color: cardBg,
       elevation: 2,
       child: InkWell(
         onTap: () => context.go('/items/${item.id}'),
@@ -651,9 +655,9 @@ class _ItemTile extends StatelessWidget {
                     imageUrl: item.primaryImageUrl,
                     fit: BoxFit.cover,
                     fallbackWidget: Container(
-                      color: const Color(0xFF1E293B),
-                      child: const Center(
-                        child: Icon(Icons.inventory_2_outlined, size: 36, color: Color(0xFF6366F1)),
+                      color: cardBg,
+                      child: Center(
+                        child: Icon(Icons.inventory_2_outlined, size: 36, color: theme.colorScheme.primary),
                       ),
                     ),
                   ),
@@ -817,7 +821,7 @@ class _ItemTile extends StatelessWidget {
 
                     // Custom Fields (Price / Attributes badge)
                     if (item.customFields.isNotEmpty)
-                      _buildFieldBadge(item),
+                      _buildFieldBadge(context, item),
                   ],
                 ),
               ),
@@ -828,7 +832,7 @@ class _ItemTile extends StatelessWidget {
     );
   }
 
-  Widget _buildFieldBadge(Item item) {
+  Widget _buildFieldBadge(BuildContext context, Item item) {
     MapEntry<String, dynamic>? displayEntry;
     for (final e in item.customFields.entries) {
       final k = e.key.toLowerCase();
@@ -846,14 +850,17 @@ class _ItemTile extends StatelessWidget {
         formattedVal.startsWith('¥') ||
         displayEntry.key.toLowerCase().contains('price');
 
+    final theme = Theme.of(context);
+    final badgeBg = isPrice ? const Color(0xFF10B981).withValues(alpha: 0.15) : theme.scaffoldBackgroundColor;
+    final badgeBorder = isPrice ? const Color(0xFF10B981).withValues(alpha: 0.4) : theme.dividerColor;
+    final badgeText = isPrice ? const Color(0xFF10B981) : theme.colorScheme.onSurface.withValues(alpha: 0.7);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: isPrice ? const Color(0xFF10B981).withValues(alpha: 0.15) : const Color(0xFF1E293B),
+        color: badgeBg,
         borderRadius: BorderRadius.circular(5),
-        border: Border.all(
-          color: isPrice ? const Color(0xFF10B981).withValues(alpha: 0.4) : const Color(0xFF334155),
-        ),
+        border: Border.all(color: badgeBorder),
       ),
       child: Text(
         isPrice ? formattedVal : '${displayEntry.key}: $formattedVal',
@@ -862,7 +869,7 @@ class _ItemTile extends StatelessWidget {
         style: TextStyle(
           fontSize: 11,
           fontWeight: isPrice ? FontWeight.bold : FontWeight.w500,
-          color: isPrice ? const Color(0xFF34D399) : const Color(0xFF94A3B8),
+          color: badgeText,
         ),
       ),
     );
@@ -878,6 +885,7 @@ class _ItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final locBreadcrumb = item.storageLocationId != null
         ? FieldQueryUtils.buildLocationBreadcrumb(item.storageLocationId, locationMap)
         : null;
@@ -899,8 +907,8 @@ class _ItemCard extends StatelessWidget {
                 fit: BoxFit.cover,
                 borderRadius: BorderRadius.circular(10),
                 fallbackWidget: Container(
-                  color: const Color(0xFF1E293B),
-                  child: const Icon(Icons.inventory_2_outlined, size: 28, color: Color(0xFF6366F1)),
+                  color: theme.scaffoldBackgroundColor,
+                  child: Icon(Icons.inventory_2_outlined, size: 28, color: theme.colorScheme.primary),
                 ),
               ),
               const SizedBox(width: 14),
@@ -1071,13 +1079,13 @@ class _ItemCard extends StatelessWidget {
                           return Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF1E293B),
+                              color: theme.scaffoldBackgroundColor,
                               borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: const Color(0xFF334155)),
+                              border: Border.all(color: theme.dividerColor),
                             ),
                             child: Text(
                               '${e.key}: $formatted',
-                              style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+                              style: TextStyle(fontSize: 10, color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
                             ),
                           );
                         }).toList(),

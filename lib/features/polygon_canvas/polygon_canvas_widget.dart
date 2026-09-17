@@ -751,13 +751,17 @@ class _PolygonCanvasWidgetState extends State<PolygonCanvasWidget>
   }
 
   Widget _buildEditToolPalette() {
+    final theme = Theme.of(context);
+    final paletteBg = (theme.cardTheme.color ?? theme.colorScheme.surface).withValues(alpha: 0.95);
+    final primaryColor = theme.colorScheme.primary;
+
     if (_selectedRegionId != null) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         decoration: BoxDecoration(
-          color: const Color(0xFF0F172A).withValues(alpha: 0.95),
+          color: paletteBg,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: const Color(0xFF818CF8), width: 1.5),
+          border: Border.all(color: primaryColor, width: 1.5),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.5),
@@ -819,9 +823,9 @@ class _PolygonCanvasWidgetState extends State<PolygonCanvasWidget>
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: const Color(0xFF0F172A).withValues(alpha: 0.95),
+          color: paletteBg,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: const Color(0xFF6366F1), width: 1.5),
+          border: Border.all(color: primaryColor, width: 1.5),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.5),
@@ -830,15 +834,15 @@ class _PolygonCanvasWidgetState extends State<PolygonCanvasWidget>
             ),
           ],
         ),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.touch_app, size: 18, color: Color(0xFF818CF8)),
-            SizedBox(width: 8),
+            Icon(Icons.touch_app, size: 18, color: primaryColor),
+            const SizedBox(width: 8),
             Text(
               'Tap photo to draw next polygon',
               style: TextStyle(
-                color: Colors.white,
+                color: theme.colorScheme.onSurface,
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),
@@ -853,8 +857,8 @@ class _PolygonCanvasWidgetState extends State<PolygonCanvasWidget>
 
     return FloatingActionButton.extended(
       heroTag: 'add_polygon_fab',
-      backgroundColor: const Color(0xFF6366F1),
-      foregroundColor: Colors.white,
+      backgroundColor: primaryColor,
+      foregroundColor: theme.colorScheme.onPrimary,
       icon: Icon(isItem ? Icons.inventory_2_outlined : Icons.crop_free, size: 20),
       label: Text(labelText, style: const TextStyle(fontWeight: FontWeight.bold)),
       onPressed: () {
@@ -867,15 +871,18 @@ class _PolygonCanvasWidgetState extends State<PolygonCanvasWidget>
   }
 
   Widget _buildDrawingToolPalette() {
+    final theme = Theme.of(context);
+    final paletteBg = (theme.cardTheme.color ?? theme.colorScheme.surface).withValues(alpha: 0.95);
+    final primaryColor = theme.colorScheme.primary;
     final canSave = _draftPoints.length >= 3;
 
     return Center(
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: const Color(0xFF0F172A).withValues(alpha: 0.95),
+          color: paletteBg,
           borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: const Color(0xFF6366F1), width: 1.5),
+          border: Border.all(color: primaryColor, width: 1.5),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.6),
@@ -891,13 +898,13 @@ class _PolygonCanvasWidgetState extends State<PolygonCanvasWidget>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFF6366F1).withValues(alpha: 0.25),
+                color: primaryColor.withValues(alpha: 0.25),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
                 '${_draftPoints.length} ${_draftPoints.length == 1 ? "pt" : "pts"}',
-                style: const TextStyle(
-                  color: Color(0xFF818CF8),
+                style: TextStyle(
+                  color: primaryColor,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                 ),
@@ -908,7 +915,7 @@ class _PolygonCanvasWidgetState extends State<PolygonCanvasWidget>
             // 1. Undo option
             TextButton.icon(
               style: TextButton.styleFrom(
-                foregroundColor: Colors.white,
+                foregroundColor: theme.colorScheme.onSurface,
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 visualDensity: VisualDensity.compact,
               ),
@@ -921,11 +928,11 @@ class _PolygonCanvasWidgetState extends State<PolygonCanvasWidget>
             // 2. Cancel / Discard draft option
             TextButton.icon(
               style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF94A3B8),
+                foregroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 visualDensity: VisualDensity.compact,
               ),
-              icon: const Icon(Icons.close, size: 16, color: Color(0xFF94A3B8)),
+              icon: Icon(Icons.close, size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
               label: const Text('Cancel', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
               onPressed: _cancelDrawing,
             ),
@@ -934,7 +941,7 @@ class _PolygonCanvasWidgetState extends State<PolygonCanvasWidget>
             // 3. Save / Complete polygon option
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: canSave ? const Color(0xFF10B981) : const Color(0xFF334155),
+                backgroundColor: canSave ? const Color(0xFF10B981) : theme.dividerColor,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                 visualDensity: VisualDensity.compact,
@@ -951,25 +958,29 @@ class _PolygonCanvasWidgetState extends State<PolygonCanvasWidget>
   }
 
   Widget _buildFallbackPlaceholder() {
+    final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF131B2E), Color(0xFF1E293B)],
+        gradient: LinearGradient(
+          colors: [
+            theme.colorScheme.surface,
+            theme.scaffoldBackgroundColor,
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF263352)),
+        border: Border.all(color: theme.dividerColor),
       ),
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          children: const [
-            Icon(Icons.image_outlined, size: 48, color: Color(0xFF64748B)),
-            SizedBox(height: 8),
+          children: [
+            Icon(Icons.image_outlined, size: 48, color: theme.colorScheme.primary.withValues(alpha: 0.6)),
+            const SizedBox(height: 8),
             Text(
               'No photo attached yet',
-              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+              style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.7), fontSize: 14),
             ),
           ],
         ),
