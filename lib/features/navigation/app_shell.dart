@@ -177,6 +177,7 @@ class AppShell extends ConsumerWidget {
     final isWide = MediaQuery.of(context).size.width >= 800;
 
     return Scaffold(
+      floatingActionButtonLocation: isWide ? null : FloatingActionButtonLocation.startFloat,
       floatingActionButton: isWide
           ? null
           : FloatingActionButton.small(

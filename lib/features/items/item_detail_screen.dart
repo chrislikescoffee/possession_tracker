@@ -218,7 +218,7 @@ class ItemDetailScreen extends ConsumerWidget {
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               ),
                               icon: const Icon(Icons.my_location, size: 16),
-                              label: const Text('Locate on Map', style: TextStyle(fontSize: 13)),
+                              label: const Text('Show Location', style: TextStyle(fontSize: 13)),
                               onPressed: () => context.go('/locator?itemId=${item.id}'),
                             ),
                           ],
