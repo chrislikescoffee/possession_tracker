@@ -6,6 +6,7 @@ enum SyncEntityType {
   item,
   itemType,
   lendingRecord,
+  itemList,
 }
 
 class SyncQueueItem {

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/services/cloud_sync_service.dart';
 import '../core/services/local_database_service.dart';
 import '../models/sync_model.dart';
+import 'item_list_state.dart';
 import 'item_state.dart';
 import 'item_type_state.dart';
 import 'library_state.dart';
@@ -102,6 +103,7 @@ class SyncStatusNotifier extends Notifier<SyncStatusInfo> {
         ref.invalidate(libraryItemsProvider);
         ref.invalidate(itemTypesProvider);
         ref.invalidate(lendingRecordsProvider);
+        ref.invalidate(itemListsProvider);
       },
     );
   }
@@ -172,6 +174,7 @@ class SyncStatusNotifier extends Notifier<SyncStatusInfo> {
       ref.invalidate(libraryItemsProvider);
       ref.invalidate(itemTypesProvider);
       ref.invalidate(lendingRecordsProvider);
+      ref.invalidate(itemListsProvider);
     }
     return result;
   }

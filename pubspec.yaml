@@ -43,6 +43,11 @@ dependencies:
   intl: ^0.20.3
   http: ^1.6.0
   path_provider: ^2.1.6
+  barcode_widget: ^2.0.4
+  barcode: ^2.2.8
+  mobile_scanner: ^7.4.2
+  pdf: ^3.12.0
+  printing: ^5.14.3
 
 dev_dependencies:
   flutter_test:

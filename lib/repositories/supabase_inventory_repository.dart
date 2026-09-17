@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/constants/app_constants.dart';
 import '../models/library_model.dart';
 import '../models/storage_location_model.dart';
+import '../models/item_list_model.dart';
 import '../models/item_model.dart';
 import '../models/item_type_model.dart';
 import '../models/lending_record_model.dart';
@@ -305,7 +306,16 @@ class SupabaseInventoryRepository implements InventoryRepository {
   }
 
   @override
-  Future<void> returnItemToPermanentLocation(String itemId) async {
+  Future<void> returnItemToPermanentLocation(String itemId, {String? scannedBarcode, bool bypassScanVerification = false}) async {
+    final item = await getItem(itemId);
+    if (item != null && item.mustScanIn && !bypassScanVerification) {
+      final expected = (item.barcode ?? '').trim();
+      final actual = (scannedBarcode ?? '').trim();
+      if (expected.isEmpty || actual != expected) {
+        throw MustScanInException('Item "${item.name}" requires barcode scan to return.');
+      }
+    }
+
     await client.from('items').update({
       'is_temporarily_relocated': false,
       'temporary_location_note': null,
@@ -353,7 +363,20 @@ class SupabaseInventoryRepository implements InventoryRepository {
   }
 
   @override
-  Future<void> returnLentItem(String lendingRecordId) async {
+  Future<void> returnLentItem(String lendingRecordId, {String? scannedBarcode, bool bypassScanVerification = false}) async {
+    final recResponse = await client.from('lending_records').select().eq('id', lendingRecordId).maybeSingle();
+    if (recResponse != null) {
+      final record = LendingRecord.fromJson(recResponse);
+      final item = await getItem(record.itemId);
+      if (item != null && item.mustScanIn && !bypassScanVerification) {
+        final expected = (item.barcode ?? '').trim();
+        final actual = (scannedBarcode ?? '').trim();
+        if (expected.isEmpty || actual != expected) {
+          throw MustScanInException('Item "${item.name}" requires barcode scan to return.');
+        }
+      }
+    }
+
     final now = DateTime.now().toIso8601String();
     final response = await client
         .from('lending_records')
@@ -367,5 +390,172 @@ class SupabaseInventoryRepository implements InventoryRepository {
       'status': AppConstants.itemStatusStored,
       'updated_at': now,
     }).eq('id', record.itemId);
+  }
+
+  // --- Item List Operations ---
+
+  @override
+  Future<List<ItemList>> getItemLists(String libraryId) async {
+    final response = await client
+        .from('item_lists')
+        .select()
+        .eq('library_id', libraryId)
+        .order('updated_at', ascending: false);
+    return (response as List).map((json) => ItemList.fromJson(json)).toList();
+  }
+
+  @override
+  Future<ItemList?> getItemList(String id) async {
+    final response = await client.from('item_lists').select().eq('id', id).maybeSingle();
+    if (response == null) return null;
+    return ItemList.fromJson(response);
+  }
+
+  @override
+  Future<ItemList> saveItemList(ItemList list) async {
+    final response = await client
+        .from('item_lists')
+        .upsert(list.toJson())
+        .select()
+        .single();
+    return ItemList.fromJson(response);
+  }
+
+  @override
+  Future<void> deleteItemList(String id) async {
+    await client.from('item_lists').delete().eq('id', id);
+  }
+
+  @override
+  Future<void> collectItemInList({
+    required String listId,
+    required String itemId,
+    required bool isCollected,
+  }) async {
+    final list = await getItemList(listId);
+    if (list == null) return;
+
+    final existingEntryIdx = list.items.indexWhere((e) => e.itemId == itemId);
+    final entry = existingEntryIdx != -1 ? list.items[existingEntryIdx] : null;
+
+    String? newLendingRecordId = entry?.lendingRecordId;
+
+    if (isCollected) {
+      switch (list.destinationType) {
+        case ListDestinationType.notRelocating:
+          break;
+        case ListDestinationType.storageLocation:
+          await temporarilyRelocateItem(
+            itemId,
+            'Relocated via list: ${list.name}',
+            tempLocationId: list.targetLocationId,
+          );
+          break;
+        case ListDestinationType.freeText:
+          await temporarilyRelocateItem(
+            itemId,
+            list.freeTextNote?.isNotEmpty == true
+                ? list.freeTextNote!
+                : 'Relocated via list: ${list.name}',
+          );
+          break;
+        case ListDestinationType.lend:
+          final rec = await lendItem(
+            itemId: itemId,
+            libraryId: list.libraryId,
+            borrowerName: list.borrowerName?.isNotEmpty == true
+                ? list.borrowerName!
+                : 'List Borrower',
+            borrowerContact: list.borrowerContact,
+            expectedReturnAt: list.dueDate,
+            notes: 'Lent via list: ${list.name}',
+          );
+          newLendingRecordId = rec.id;
+          break;
+      }
+    } else {
+      if (entry != null && entry.isCollected) {
+        if (list.destinationType == ListDestinationType.lend && entry.lendingRecordId != null) {
+          await returnLentItem(entry.lendingRecordId!, bypassScanVerification: true);
+          newLendingRecordId = null;
+        } else if (list.destinationType == ListDestinationType.storageLocation ||
+            list.destinationType == ListDestinationType.freeText) {
+          await returnItemToPermanentLocation(itemId, bypassScanVerification: true);
+        }
+      }
+    }
+
+    final updatedEntry = ItemListItemEntry(
+      itemId: itemId,
+      isCollected: isCollected,
+      collectedAt: isCollected ? DateTime.now() : null,
+      lendingRecordId: newLendingRecordId,
+    );
+
+    final updatedItems = List<ItemListItemEntry>.from(list.items);
+    if (existingEntryIdx != -1) {
+      updatedItems[existingEntryIdx] = updatedEntry;
+    } else {
+      updatedItems.add(updatedEntry);
+    }
+
+    await saveItemList(list.copyWith(items: updatedItems));
+  }
+
+  @override
+  Future<void> addItemToList({
+    required String listId,
+    required String itemId,
+    bool isCollected = false,
+  }) async {
+    final list = await getItemList(listId);
+    if (list == null) return;
+
+    if (!list.items.any((e) => e.itemId == itemId)) {
+      final updatedItems = List<ItemListItemEntry>.from(list.items)
+        ..add(ItemListItemEntry(
+          itemId: itemId,
+          isCollected: false,
+        ));
+      await saveItemList(list.copyWith(items: updatedItems));
+    }
+
+    if (isCollected) {
+      await collectItemInList(listId: listId, itemId: itemId, isCollected: true);
+    }
+  }
+
+  @override
+  Future<void> returnSelectedItemsInList({
+    required String listId,
+    required List<String> itemIds,
+    Map<String, String>? verifiedBarcodes,
+  }) async {
+    final list = await getItemList(listId);
+    if (list == null) return;
+
+    final updatedItems = List<ItemListItemEntry>.from(list.items);
+
+    for (final itemId in itemIds) {
+      final idx = updatedItems.indexWhere((e) => e.itemId == itemId);
+      if (idx == -1) continue;
+      final entry = updatedItems[idx];
+
+      final barcode = verifiedBarcodes?[itemId];
+
+      if (entry.lendingRecordId != null) {
+        await returnLentItem(entry.lendingRecordId!, scannedBarcode: barcode);
+      } else {
+        await returnItemToPermanentLocation(itemId, scannedBarcode: barcode);
+      }
+
+      updatedItems[idx] = entry.copyWith(
+        isCollected: false,
+        collectedAt: null,
+        lendingRecordId: null,
+      );
+    }
+
+    await saveItemList(list.copyWith(items: updatedItems));
   }
 }

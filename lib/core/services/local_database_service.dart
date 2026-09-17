@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/field_definition_model.dart';
+import '../../models/item_list_model.dart';
 import '../../models/item_model.dart';
 import '../../models/item_type_model.dart';
 import '../../models/lending_record_model.dart';
@@ -31,6 +32,7 @@ class LocalDatabaseService {
   final List<Item> _items = [];
   final List<ItemType> _itemTypes = [];
   final List<LendingRecord> _lendingRecords = [];
+  final List<ItemList> _itemLists = [];
   final List<SyncQueueItem> _syncQueue = [];
   final Set<String> _locallyDeletedLibraryIds = {};
   DateTime? _lastSyncedAt;
@@ -43,6 +45,7 @@ class LocalDatabaseService {
   List<Item> get items => List.unmodifiable(_items);
   List<ItemType> get itemTypes => List.unmodifiable(_itemTypes);
   List<LendingRecord> get lendingRecords => List.unmodifiable(_lendingRecords);
+  List<ItemList> get itemLists => List.unmodifiable(_itemLists);
   List<SyncQueueItem> get syncQueue => List.unmodifiable(_syncQueue);
   Set<String> get locallyDeletedLibraryIds => Set.unmodifiable(_locallyDeletedLibraryIds);
   DateTime? get lastSyncedAt => _lastSyncedAt;
@@ -115,6 +118,7 @@ class LocalDatabaseService {
     _items.clear();
     _itemTypes.clear();
     _lendingRecords.clear();
+    _itemLists.clear();
     _syncQueue.clear();
 
     bool hadDuplicates = false;
@@ -179,6 +183,18 @@ class LocalDatabaseService {
       }
     }
 
+    if (data['item_lists'] is List) {
+      final seen = <String>{};
+      for (final json in data['item_lists']) {
+        final il = ItemList.fromJson(json as Map<String, dynamic>);
+        if (seen.add(il.id)) {
+          _itemLists.add(il);
+        } else {
+          hadDuplicates = true;
+        }
+      }
+    }
+
     if (data['sync_queue'] is List) {
       final seen = <String>{};
       for (final json in data['sync_queue']) {
@@ -223,6 +239,7 @@ class LocalDatabaseService {
       'items': _items.map((e) => e.toJson()).toList(),
       'item_types': _itemTypes.map((e) => e.toJson()).toList(),
       'lending_records': _lendingRecords.map((e) => e.toJson()).toList(),
+      'item_lists': _itemLists.map((e) => e.toJson()).toList(),
       'sync_queue': _syncQueue.map((e) => e.toJson()).toList(),
     };
   }
@@ -307,6 +324,7 @@ class LocalDatabaseService {
     _items.removeWhere((item) => item.libraryId == id);
     _itemTypes.removeWhere((it) => it.libraryId == id);
     _lendingRecords.removeWhere((lr) => lr.libraryId == id);
+    _itemLists.removeWhere((il) => il.libraryId == id);
 
     // Clean up sync queue items related to this library
     _syncQueue.removeWhere((q) {
@@ -417,6 +435,29 @@ class LocalDatabaseService {
     if (enqueueSync) onDataChanged?.call();
   }
 
+  Future<void> upsertItemList(ItemList list, {bool enqueueSync = true}) async {
+    final idx = _itemLists.indexWhere((l) => l.id == list.id);
+    if (idx != -1) {
+      _itemLists[idx] = list;
+    } else {
+      _itemLists.add(list);
+    }
+    if (enqueueSync) {
+      enqueue(SyncEntityType.itemList, list.id, SyncOperation.upsert, list.toJson());
+    }
+    await saveToDisk();
+    if (enqueueSync) onDataChanged?.call();
+  }
+
+  Future<void> removeItemList(String id, {bool enqueueSync = true}) async {
+    _itemLists.removeWhere((l) => l.id == id);
+    if (enqueueSync) {
+      enqueue(SyncEntityType.itemList, id, SyncOperation.delete, null);
+    }
+    await saveToDisk();
+    if (enqueueSync) onDataChanged?.call();
+  }
+
   // --- Sync Queue Helpers ---
 
   void enqueue(SyncEntityType entityType, String entityId, SyncOperation operation, Map<String, dynamic>? payload) {
@@ -452,6 +493,7 @@ class LocalDatabaseService {
     _items.clear();
     _itemTypes.clear();
     _lendingRecords.clear();
+    _itemLists.clear();
     _syncQueue.clear();
 
     final now = DateTime.now();

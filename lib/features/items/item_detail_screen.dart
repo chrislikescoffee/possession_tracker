@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../core/utils/field_query_utils.dart';
 import '../../core/widgets/app_image_view.dart';
+import '../../core/widgets/barcode_scanner_dialog.dart';
 import '../../core/widgets/image_picker_bottom_sheet.dart';
 import '../../models/item_model.dart';
 import '../../state/item_state.dart';
@@ -158,6 +159,28 @@ class ItemDetailScreen extends ConsumerWidget {
                     style: const TextStyle(fontSize: 14, color: Color(0xFF94A3B8)),
                   ),
                 ],
+                if (item.mustScanIn) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.4)),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.qr_code_scanner, size: 14, color: Color(0xFF10B981)),
+                        SizedBox(width: 6),
+                        Text(
+                          'Must scan in to return',
+                          style: TextStyle(fontSize: 12, color: Color(0xFF10B981), fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
 
                 const SizedBox(height: 16),
 
@@ -282,10 +305,34 @@ class ItemDetailScreen extends ConsumerWidget {
                                 icon: const Icon(Icons.home, size: 18),
                                 label: const Text('Return to Home Location'),
                                 onPressed: () async {
-                                  final repo = ref.read(repositoryProvider);
-                                  await repo.returnItemToPermanentLocation(item.id);
-                                  ref.invalidate(itemDetailProvider(item.id));
-                                  ref.invalidate(libraryItemsProvider);
+                                  String? scanned;
+                                  if (item.mustScanIn) {
+                                    scanned = await BarcodeScannerDialog.show(
+                                      context,
+                                      title: 'Scan Barcode to Return "${item.name}"',
+                                    );
+                                    if (scanned == null) return;
+                                  }
+                                  try {
+                                    final repo = ref.read(repositoryProvider);
+                                    await repo.returnItemToPermanentLocation(item.id, scannedBarcode: scanned);
+                                    ref.invalidate(itemDetailProvider(item.id));
+                                    ref.invalidate(libraryItemsProvider);
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('${item.name} returned to home location.')),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(e.toString()),
+                                          backgroundColor: Theme.of(context).colorScheme.error,
+                                        ),
+                                      );
+                                    }
+                                  }
                                 },
                               ),
                               const SizedBox(width: 8),
@@ -411,11 +458,35 @@ class ItemDetailScreen extends ConsumerWidget {
                                     icon: const Icon(Icons.assignment_turned_in, size: 18),
                                     label: const Text('Mark as Returned'),
                                     onPressed: () async {
-                                      final repo = ref.read(repositoryProvider);
-                                      await repo.returnLentItem(activeRecord.id);
-                                      ref.invalidate(itemDetailProvider(item.id));
-                                      ref.invalidate(libraryItemsProvider);
-                                      ref.invalidate(lendingRecordsProvider);
+                                      String? scanned;
+                                      if (item.mustScanIn) {
+                                        scanned = await BarcodeScannerDialog.show(
+                                          context,
+                                          title: 'Scan Barcode to Return "${item.name}"',
+                                        );
+                                        if (scanned == null) return;
+                                      }
+                                      try {
+                                        final repo = ref.read(repositoryProvider);
+                                        await repo.returnLentItem(activeRecord.id, scannedBarcode: scanned);
+                                        ref.invalidate(itemDetailProvider(item.id));
+                                        ref.invalidate(libraryItemsProvider);
+                                        ref.invalidate(lendingRecordsProvider);
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(content: Text('${item.name} returned from lending.')),
+                                          );
+                                        }
+                                      } catch (e) {
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text(e.toString()),
+                                              backgroundColor: Theme.of(context).colorScheme.error,
+                                            ),
+                                          );
+                                        }
+                                      }
                                     },
                                   ),
                                 ],

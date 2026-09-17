@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../barcodes/barcode_print_screen.dart';
 import '../items/item_detail_screen.dart';
 import '../items/items_list_screen.dart';
 import '../lending/lending_ledger_screen.dart';
+import '../lists/list_detail_screen.dart';
+import '../lists/lists_screen.dart';
 import '../locator/item_locator_screen.dart';
 import '../settings/settings_screen.dart';
 import '../storage/storage_location_detail_screen.dart';
@@ -49,6 +52,19 @@ final appRouter = GoRouter(
           ],
         ),
         GoRoute(
+          path: '/lists',
+          builder: (context, state) => const ListsScreen(),
+          routes: [
+            GoRoute(
+              path: ':id',
+              builder: (context, state) {
+                final id = state.pathParameters['id']!;
+                return ListDetailScreen(listId: id);
+              },
+            ),
+          ],
+        ),
+        GoRoute(
           path: '/locator',
           builder: (context, state) {
             final itemId = state.uri.queryParameters['itemId'];
@@ -62,6 +78,12 @@ final appRouter = GoRouter(
         GoRoute(
           path: '/settings',
           builder: (context, state) => const SettingsScreen(),
+          routes: [
+            GoRoute(
+              path: 'barcodes',
+              builder: (context, state) => const BarcodePrintScreen(),
+            ),
+          ],
         ),
       ],
     ),

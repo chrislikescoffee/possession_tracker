@@ -25,7 +25,18 @@ class _ItemsListScreenState extends ConsumerState<ItemsListScreen> {
   String _sortBy = 'name'; // 'name', 'date', 'location', 'type', or 'field:<name>'
   bool _sortAscending = true;
   bool _isGridView = true; // Default: grid tiles
+  bool _isAllCollapsed = false;
+  int _collapseGeneration = 0;
+  final Map<String, bool> _groupExpandedState = {};
   final _searchController = TextEditingController();
+
+  void _toggleCollapseAll() {
+    setState(() {
+      _isAllCollapsed = !_isAllCollapsed;
+      _collapseGeneration++;
+      _groupExpandedState.clear();
+    });
+  }
 
   @override
   void dispose() {
@@ -363,6 +374,26 @@ class _ItemsListScreenState extends ConsumerState<ItemsListScreen> {
 
                         const Spacer(),
 
+                        if (_groupBy != 'none') ...[
+                          TextButton.icon(
+                            style: TextButton.styleFrom(
+                              foregroundColor: const Color(0xFF94A3B8),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                            icon: Icon(
+                              _isAllCollapsed ? Icons.unfold_more : Icons.unfold_less,
+                              size: 16,
+                            ),
+                            label: Text(
+                              _isAllCollapsed ? 'Expand All' : 'Collapse All',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            onPressed: _toggleCollapseAll,
+                          ),
+                          const SizedBox(width: 4),
+                        ],
+
                         // Grid vs List Toggle
                         IconButton(
                           tooltip: _isGridView ? 'Switch to List View' : 'Switch to Grid Tiles',
@@ -514,7 +545,11 @@ class _ItemsListScreenState extends ConsumerState<ItemsListScreen> {
           child: Theme(
             data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
             child: ExpansionTile(
-              initiallyExpanded: true,
+              key: PageStorageKey('group_${groupKey}_$_collapseGeneration'),
+              initiallyExpanded: _groupExpandedState[groupKey] ?? !_isAllCollapsed,
+              onExpansionChanged: (expanded) {
+                _groupExpandedState[groupKey] = expanded;
+              },
               title: Row(
                 children: [
                   Expanded(

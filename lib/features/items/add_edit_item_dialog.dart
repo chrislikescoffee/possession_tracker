@@ -1,14 +1,20 @@
+import 'package:barcode_widget/barcode_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/utils/barcode_utils.dart';
+import '../../core/utils/field_query_utils.dart';
+import '../../core/widgets/barcode_scanner_dialog.dart';
 import '../../models/polygon_region.dart';
 import '../../core/widgets/app_image_view.dart';
 import '../../core/widgets/image_picker_bottom_sheet.dart';
 import '../../models/field_definition_model.dart';
 import '../../models/item_model.dart';
 import '../../models/item_type_model.dart';
+import '../../models/storage_location_model.dart';
 import '../../state/item_type_state.dart';
+import '../../state/storage_state.dart';
 import 'typed_field_input_widget.dart';
 
 class ItemDialogResult {
@@ -19,6 +25,11 @@ class ItemDialogResult {
   final String? draftName;
   final String? draftDescription;
   final String? draftItemTypeId;
+  final String? draftLocationId;
+  final String? draftBarcode;
+  final String? draftBarcodeType;
+  final DateTime? draftBarcodeGeneratedAt;
+  final bool draftMustScanIn;
 
   const ItemDialogResult({
     this.item,
@@ -28,6 +39,11 @@ class ItemDialogResult {
     this.draftName,
     this.draftDescription,
     this.draftItemTypeId,
+    this.draftLocationId,
+    this.draftBarcode,
+    this.draftBarcodeType,
+    this.draftBarcodeGeneratedAt,
+    this.draftMustScanIn = false,
   });
 }
 
@@ -39,6 +55,10 @@ class AddEditItemDialog extends ConsumerStatefulWidget {
   final String? initialName;
   final String? initialDescription;
   final String? initialItemTypeId;
+  final String? initialBarcode;
+  final String? initialBarcodeType;
+  final DateTime? initialBarcodeGeneratedAt;
+  final bool? initialMustScanIn;
   final int? initialColorHex;
   final List<NormalizedPoint>? initialPolygonPoints;
 
@@ -51,6 +71,10 @@ class AddEditItemDialog extends ConsumerStatefulWidget {
     this.initialName,
     this.initialDescription,
     this.initialItemTypeId,
+    this.initialBarcode,
+    this.initialBarcodeType,
+    this.initialBarcodeGeneratedAt,
+    this.initialMustScanIn,
     this.initialColorHex,
     this.initialPolygonPoints,
   });
@@ -63,12 +87,18 @@ class _AddEditItemDialogState extends ConsumerState<AddEditItemDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _descController;
+  late final TextEditingController _barcodeController;
   final _imageUrlController = TextEditingController();
 
+  String? _selectedLocationId;
+  String? _barcodeType;
+  DateTime? _barcodeGeneratedAt;
+  DateTime? _barcodeLastPrintedAt;
   String? _selectedItemTypeId;
   String? _selectedItemTypeName;
   late int _selectedColorHex;
   List<NormalizedPoint>? _polygonPoints;
+  bool _mustScanIn = false;
 
   static const List<int> _paletteColors = [
     0xFF10B981, // Emerald
@@ -88,12 +118,21 @@ class _AddEditItemDialogState extends ConsumerState<AddEditItemDialog> {
   @override
   void initState() {
     super.initState();
+    _selectedLocationId = widget.initialLocationId ?? widget.itemToEdit?.storageLocationId;
     _nameController = TextEditingController(
       text: widget.initialName ?? widget.itemToEdit?.name ?? '',
     );
     _descController = TextEditingController(
       text: widget.initialDescription ?? widget.itemToEdit?.description ?? '',
     );
+    _barcodeController = TextEditingController(
+      text: widget.initialBarcode ?? widget.itemToEdit?.barcode ?? '',
+    );
+    _barcodeType = widget.initialBarcodeType ?? widget.itemToEdit?.barcodeType;
+    _barcodeGeneratedAt = widget.initialBarcodeGeneratedAt ?? widget.itemToEdit?.barcodeGeneratedAt;
+    _barcodeLastPrintedAt = widget.itemToEdit?.barcodeLastPrintedAt;
+    _mustScanIn = widget.initialMustScanIn ?? widget.itemToEdit?.mustScanIn ?? false;
+
     _selectedItemTypeId = widget.initialItemTypeId ?? widget.itemToEdit?.itemTypeId ?? 'generic';
     _selectedColorHex = widget.initialColorHex ?? _paletteColors.first;
     _polygonPoints = widget.initialPolygonPoints ?? widget.itemToEdit?.polygonPoints;
@@ -142,6 +181,7 @@ class _AddEditItemDialogState extends ConsumerState<AddEditItemDialog> {
   void dispose() {
     _nameController.dispose();
     _descController.dispose();
+    _barcodeController.dispose();
     _imageUrlController.dispose();
     super.dispose();
   }
@@ -289,6 +329,11 @@ class _AddEditItemDialogState extends ConsumerState<AddEditItemDialog> {
         draftName: _nameController.text.trim(),
         draftDescription: _descController.text.trim(),
         draftItemTypeId: _selectedItemTypeId,
+        draftLocationId: _selectedLocationId,
+        draftBarcode: _barcodeController.text.trim().isEmpty ? null : _barcodeController.text.trim(),
+        draftBarcodeType: _barcodeType,
+        draftBarcodeGeneratedAt: _barcodeGeneratedAt,
+        draftMustScanIn: _mustScanIn,
         colorHex: _selectedColorHex,
         polygonPoints: _polygonPoints,
       ),
@@ -301,12 +346,17 @@ class _AddEditItemDialogState extends ConsumerState<AddEditItemDialog> {
     final item = Item(
       id: widget.itemToEdit?.id ?? const Uuid().v4(),
       libraryId: widget.libraryId,
-      storageLocationId: widget.initialLocationId ?? widget.itemToEdit?.storageLocationId,
+      storageLocationId: _selectedLocationId,
       itemTypeId: _selectedItemTypeId,
       itemTypeName: _selectedItemTypeName,
       name: _nameController.text.trim(),
       description: _descController.text.trim().isEmpty ? null : _descController.text.trim(),
       primaryImageUrl: _imageUrlController.text.trim().isEmpty ? null : _imageUrlController.text.trim(),
+      barcode: _barcodeController.text.trim().isEmpty ? null : _barcodeController.text.trim(),
+      barcodeType: _barcodeType,
+      barcodeGeneratedAt: _barcodeGeneratedAt,
+      barcodeLastPrintedAt: _barcodeLastPrintedAt,
+      mustScanIn: _barcodeController.text.trim().isNotEmpty && _mustScanIn,
       polygonPoints: _polygonPoints ?? widget.itemToEdit?.polygonPoints ?? [],
       customFields: _fieldValues,
       isTemporarilyRelocated: widget.itemToEdit?.isTemporarilyRelocated ?? false,
@@ -426,6 +476,50 @@ class _AddEditItemDialogState extends ConsumerState<AddEditItemDialog> {
                     hintText: 'Specifications, notes, or storage tips',
                     prefixIcon: Icon(Icons.notes),
                   ),
+                ),
+                const SizedBox(height: 14),
+
+                // Storage Area Assignment
+                ref.watch(allStorageLocationsProvider).when(
+                  data: (allLocs) {
+                    final locMap = {for (final l in allLocs) l.id: l};
+                    final sortedLocs = List<StorageLocation>.from(allLocs)
+                      ..sort((a, b) => FieldQueryUtils.buildLocationBreadcrumb(a.id, locMap)
+                          .toLowerCase()
+                          .compareTo(FieldQueryUtils.buildLocationBreadcrumb(b.id, locMap).toLowerCase()));
+
+                    return DropdownButtonFormField<String?>(
+                      value: _selectedLocationId,
+                      dropdownColor: const Color(0xFF1E293B),
+                      decoration: const InputDecoration(
+                        labelText: 'Assigned Storage Area',
+                        hintText: 'Select container or area...',
+                        prefixIcon: Icon(Icons.folder_outlined, color: Color(0xFF38BDF8)),
+                      ),
+                      isExpanded: true,
+                      items: [
+                        const DropdownMenuItem<String?>(
+                          value: null,
+                          child: Text('Unassigned / No Area', style: TextStyle(color: Color(0xFF94A3B8))),
+                        ),
+                        ...sortedLocs.map((loc) {
+                          final path = FieldQueryUtils.buildLocationBreadcrumb(loc.id, locMap);
+                          return DropdownMenuItem<String?>(
+                            value: loc.id,
+                            child: Text(
+                              path,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }),
+                      ],
+                      onChanged: (val) {
+                        setState(() => _selectedLocationId = val);
+                      },
+                    );
+                  },
+                  loading: () => const LinearProgressIndicator(),
+                  error: (_, _) => const SizedBox(),
                 ),
                 const SizedBox(height: 14),
 
@@ -569,6 +663,186 @@ class _AddEditItemDialogState extends ConsumerState<AddEditItemDialog> {
                 ),
                 const SizedBox(height: 18),
 
+                // Barcode / QR Code Section
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF334155)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.qr_code_2_rounded, size: 20, color: Color(0xFF10B981)),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Barcode / QR Code',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFE2E8F0),
+                            ),
+                          ),
+                          const Spacer(),
+                          if (_barcodeController.text.isNotEmpty)
+                            TextButton.icon(
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                visualDensity: VisualDensity.compact,
+                                foregroundColor: const Color(0xFFF43F5E),
+                              ),
+                              icon: const Icon(Icons.clear_rounded, size: 16),
+                              label: const Text('Remove', style: TextStyle(fontSize: 12)),
+                                onPressed: () {
+                                setState(() {
+                                  _barcodeController.clear();
+                                  _barcodeType = null;
+                                  _barcodeGeneratedAt = null;
+                                  _mustScanIn = false;
+                                });
+                              },
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      if (_barcodeController.text.isNotEmpty) ...[
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: BarcodeWidget(
+                                barcode: Barcode.qrCode(),
+                                data: _barcodeController.text,
+                                width: 64,
+                                height: 64,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _barcodeController.text,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      fontFamily: 'monospace',
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _barcodeGeneratedAt != null
+                                        ? 'Generated code (Ready to print)'
+                                        : 'Scanned / Custom code',
+                                    style: TextStyle(
+                                      color: _barcodeGeneratedAt != null
+                                          ? const Color(0xFF34D399)
+                                          : const Color(0xFF94A3B8),
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0F172A),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFF334155)),
+                          ),
+                          child: SwitchListTile.adaptive(
+                            contentPadding: EdgeInsets.zero,
+                            dense: true,
+                            title: const Row(
+                              children: [
+                                Icon(Icons.lock_outline_rounded, size: 16, color: Color(0xFF10B981)),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Must scan in to return',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFFE2E8F0),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            subtitle: const Text(
+                              'Requires scanning barcode before returning to home location or from lending.',
+                              style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                            ),
+                            value: _mustScanIn,
+                            activeColor: const Color(0xFF10B981),
+                            onChanged: (val) {
+                              setState(() => _mustScanIn = val);
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                side: const BorderSide(color: Color(0xFF10B981)),
+                                foregroundColor: const Color(0xFF10B981),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
+                              label: const Text('Scan Code', style: TextStyle(fontSize: 12)),
+                              onPressed: () async {
+                                final scanned = await BarcodeScannerDialog.show(context, title: 'Scan Item Code');
+                                if (scanned != null && scanned.isNotEmpty) {
+                                  setState(() {
+                                    _barcodeController.text = scanned;
+                                    _barcodeType = 'scanned';
+                                    _barcodeGeneratedAt = null;
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: FilledButton.tonalIcon(
+                              style: FilledButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                backgroundColor: const Color(0xFF10B981).withValues(alpha: 0.15),
+                                foregroundColor: const Color(0xFF10B981),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                              label: const Text('Generate QR Code', style: TextStyle(fontSize: 12)),
+                              onPressed: () {
+                                setState(() {
+                                  _barcodeController.text = BarcodeUtils.generateItemBarcode();
+                                  _barcodeType = 'qr';
+                                  _barcodeGeneratedAt = DateTime.now();
+                                });
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
 
                 // Typed Custom Fields Section
                 Row(

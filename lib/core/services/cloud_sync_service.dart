@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
+import '../../models/item_list_model.dart';
 import '../../models/item_model.dart';
 import '../../models/item_type_model.dart';
 import '../../models/lending_record_model.dart';
@@ -230,6 +231,14 @@ class CloudSyncService {
                 await _client!.from('lending_records').delete().eq('id', item.entityId);
               }
               break;
+
+            case SyncEntityType.itemList:
+              if (item.operation == SyncOperation.upsert && item.payload != null) {
+                await _client!.from('item_lists').upsert(item.payload!);
+              } else if (item.operation == SyncOperation.delete) {
+                await _client!.from('item_lists').delete().eq('id', item.entityId);
+              }
+              break;
           }
           syncedQueueIds.add(item.id);
         } catch (itemError) {
@@ -356,6 +365,20 @@ class CloudSyncService {
             final remoteLr = LendingRecord.fromJson(json as Map<String, dynamic>);
             await db.upsertLendingRecord(remoteLr, enqueueSync: false);
           }
+
+          // Pull item lists
+          try {
+            final listsResponse = await _client!
+                .from('item_lists')
+                .select()
+                .eq('library_id', lib.id);
+            for (final json in (listsResponse as List)) {
+              final remoteList = ItemList.fromJson(json as Map<String, dynamic>);
+              await db.upsertItemList(remoteList, enqueueSync: false);
+            }
+          } catch (e) {
+            debugPrint('Pull item_lists notice (non-fatal): $e');
+          }
         } catch (pullError) {
           debugPrint('Pull error for library ${lib.name}: $pullError');
           return SyncStatusInfo(
@@ -445,6 +468,16 @@ class CloudSyncService {
         for (final lr in lrs) {
           await _client!.from('lending_records').upsert(lr.toJson());
         }
+
+        // Item lists
+        final itemLists = db.itemLists.where((il) => il.libraryId == lib.id);
+        for (final il in itemLists) {
+          try {
+            await _client!.from('item_lists').upsert(il.toJson());
+          } catch (e) {
+            debugPrint('Push item_list notice (non-fatal): $e');
+          }
+        }
       } catch (e) {
         debugPrint('Error pushing all local data for ${lib.name}: $e');
       }
@@ -470,68 +503,40 @@ class CloudSyncService {
     final c = client;
     if (c == null) return;
     try {
+      await c.from('lending_records').delete().eq('library_id', libraryId);
+      await c.from('items').delete().eq('library_id', libraryId);
+      await c.from('storage_locations').delete().eq('library_id', libraryId);
+      await c.from('item_types').delete().eq('library_id', libraryId);
       try {
-        await c.from('lending_records').delete().eq('library_id', libraryId);
-      } catch (e) {
-        debugPrint('Error deleting remote lending records: $e');
-      }
-      try {
-        await c.from('items').delete().eq('library_id', libraryId);
-      } catch (e) {
-        debugPrint('Error deleting remote items: $e');
-      }
-      try {
-        await c.from('storage_locations').delete().eq('library_id', libraryId);
-      } catch (e) {
-        debugPrint('Error deleting remote storage locations: $e');
-      }
-      try {
-        await c.from('item_types').delete().eq('library_id', libraryId);
-      } catch (e) {
-        debugPrint('Error deleting remote item types: $e');
-      }
-      try {
-        await c.from('libraries').delete().eq('id', libraryId);
-      } catch (e) {
-        debugPrint('Error deleting remote library: $e');
-      }
-
-      // Purge any related sync queue items in local db
-      final queueToDelete = db.syncQueue
-          .where((q) =>
-              q.entityId == libraryId ||
-              (q.payload != null && q.payload!['library_id'] == libraryId))
-          .map((q) => q.id)
-          .toList();
-      if (queueToDelete.isNotEmpty) {
-        await db.removeSyncQueueItems(queueToDelete);
-      }
+        await c.from('item_lists').delete().eq('library_id', libraryId);
+      } catch (_) {}
+      await c.from('libraries').delete().eq('id', libraryId);
     } catch (e) {
-      debugPrint('Error during cloud library delete: $e');
+      debugPrint('Error deleting library $libraryId from cloud: $e');
     }
   }
 
   RealtimeChannel? _realtimeChannel;
 
   void startRealtimeSubscription({required VoidCallback onRemoteChange}) {
-    final c = client;
-    if (c == null) return;
-    stopRealtimeSubscription();
+    if (_realtimeChannel != null) return;
+    if (_client == null) return;
 
     try {
-      _realtimeChannel = c.channel('public:inventory_changes');
-      _realtimeChannel!
+      _realtimeChannel = _client!
+          .channel('public:schema-sync')
           .onPostgresChanges(
             event: PostgresChangeEvent.all,
             schema: 'public',
             callback: (payload) async {
-              try {
-                final table = payload.table;
-                final event = payload.eventType;
-                final newRecord = payload.newRecord;
-                final oldRecord = payload.oldRecord;
+              final table = payload.table;
+              final event = payload.eventType;
+              final newRecord = payload.newRecord;
+              final oldRecord = payload.oldRecord;
 
-                if (event == PostgresChangeEvent.insert || event == PostgresChangeEvent.update) {
+              try {
+                if (event == PostgresChangeEvent.insert ||
+                    event == PostgresChangeEvent.update) {
                   if (newRecord.isNotEmpty) {
                     switch (table) {
                       case 'libraries':
@@ -564,6 +569,12 @@ class CloudSyncService {
                           await db.upsertLendingRecord(lr, enqueueSync: false);
                         }
                         break;
+                      case 'item_lists':
+                        final il = ItemList.fromJson(newRecord);
+                        if (!db.locallyDeletedLibraryIds.contains(il.libraryId)) {
+                          await db.upsertItemList(il, enqueueSync: false);
+                        }
+                        break;
                     }
                   }
                 } else if (event == PostgresChangeEvent.delete) {
@@ -584,6 +595,9 @@ class CloudSyncService {
                         break;
                       case 'lending_records':
                         await db.removeLendingRecord(recordId, enqueueSync: false);
+                        break;
+                      case 'item_lists':
+                        await db.removeItemList(recordId, enqueueSync: false);
                         break;
                     }
                   }

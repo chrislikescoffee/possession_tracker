@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import '../../core/widgets/barcode_scanner_dialog.dart';
 import '../../state/item_state.dart';
 import '../../state/repository_provider.dart';
 
@@ -162,10 +163,36 @@ class LendingLedgerScreen extends ConsumerWidget {
                               icon: const Icon(Icons.check_circle_outline, size: 16),
                               label: const Text('Mark Returned'),
                               onPressed: () async {
-                                final repo = ref.read(repositoryProvider);
-                                await repo.returnLentItem(record.id);
-                                ref.invalidate(lendingRecordsProvider);
-                                ref.invalidate(libraryItemsProvider);
+                                final associatedItem = itemsMap[record.itemId];
+                                String? scanned;
+                                if (associatedItem != null && associatedItem.mustScanIn) {
+                                  scanned = await BarcodeScannerDialog.show(
+                                    context,
+                                    title: 'Scan Barcode to Return "${associatedItem.name}"',
+                                  );
+                                  if (scanned == null) return;
+                                }
+
+                                try {
+                                  final repo = ref.read(repositoryProvider);
+                                  await repo.returnLentItem(record.id, scannedBarcode: scanned);
+                                  ref.invalidate(lendingRecordsProvider);
+                                  ref.invalidate(libraryItemsProvider);
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('${associatedItem?.name ?? "Item"} returned.')),
+                                    );
+                                  }
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(e.toString()),
+                                        backgroundColor: Theme.of(context).colorScheme.error,
+                                      ),
+                                    );
+                                  }
+                                }
                               },
                             ),
                           ),

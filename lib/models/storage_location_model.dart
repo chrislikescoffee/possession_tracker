@@ -12,6 +12,10 @@ class StorageLocation {
   final String? imageUrl;
   final List<PolygonRegion> regions;
   final int sortOrder;
+  final String? barcode;
+  final String? barcodeType;
+  final DateTime? barcodeGeneratedAt;
+  final DateTime? barcodeLastPrintedAt;
   final DateTime createdAt;
 
   const StorageLocation({
@@ -23,11 +27,16 @@ class StorageLocation {
     this.imageUrl,
     this.regions = const [],
     this.sortOrder = 0,
+    this.barcode,
+    this.barcodeType,
+    this.barcodeGeneratedAt,
+    this.barcodeLastPrintedAt,
     required this.createdAt,
   });
 
   bool get isRoot => parentId == null || parentId!.isEmpty;
   bool get hasImage => imageUrl != null && imageUrl!.isNotEmpty;
+  bool get hasBarcode => barcode != null && barcode!.trim().isNotEmpty;
 
   factory StorageLocation.fromJson(Map<String, dynamic> json) {
     dynamic rawCoords = json['polygon_coordinates'];
@@ -56,6 +65,14 @@ class StorageLocation {
       imageUrl: json['image_url'] as String?,
       regions: regionsList,
       sortOrder: json['sort_order'] as int? ?? 0,
+      barcode: json['barcode'] as String?,
+      barcodeType: json['barcode_type'] as String?,
+      barcodeGeneratedAt: json['barcode_generated_at'] != null
+          ? DateTime.tryParse(json['barcode_generated_at'] as String)
+          : null,
+      barcodeLastPrintedAt: json['barcode_last_printed_at'] != null
+          ? DateTime.tryParse(json['barcode_last_printed_at'] as String)
+          : null,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : DateTime.now(),
@@ -71,6 +88,10 @@ class StorageLocation {
         'image_url': imageUrl,
         'polygon_coordinates': regions.map((r) => r.toJson()).toList(),
         'sort_order': sortOrder,
+        'barcode': barcode,
+        'barcode_type': barcodeType,
+        'barcode_generated_at': barcodeGeneratedAt?.toIso8601String(),
+        'barcode_last_printed_at': barcodeLastPrintedAt?.toIso8601String(),
         'created_at': createdAt.toIso8601String(),
       };
 
@@ -83,6 +104,10 @@ class StorageLocation {
     String? imageUrl,
     List<PolygonRegion>? regions,
     int? sortOrder,
+    String? barcode,
+    String? barcodeType,
+    DateTime? barcodeGeneratedAt,
+    DateTime? barcodeLastPrintedAt,
     DateTime? createdAt,
   }) {
     return StorageLocation(
@@ -94,6 +119,10 @@ class StorageLocation {
       imageUrl: imageUrl ?? this.imageUrl,
       regions: regions ?? this.regions,
       sortOrder: sortOrder ?? this.sortOrder,
+      barcode: barcode ?? this.barcode,
+      barcodeType: barcodeType ?? this.barcodeType,
+      barcodeGeneratedAt: barcodeGeneratedAt ?? this.barcodeGeneratedAt,
+      barcodeLastPrintedAt: barcodeLastPrintedAt ?? this.barcodeLastPrintedAt,
       createdAt: createdAt ?? this.createdAt,
     );
   }

@@ -236,6 +236,9 @@ class _StorageLocationDetailScreenState
           allowDraw: true,
           initialName: draft.draftName,
           initialDescription: draft.draftDescription,
+          initialBarcode: draft.draftBarcode,
+          initialBarcodeType: draft.draftBarcodeType,
+          initialBarcodeGeneratedAt: draft.draftBarcodeGeneratedAt,
           initialColorHex: draft.colorHex,
           initialPolygonPoints: points,
           initialUseCroppedPhoto: draft.useCroppedPhoto,
@@ -290,6 +293,9 @@ class _StorageLocationDetailScreenState
           initialName: draft.draftName,
           initialDescription: draft.draftDescription,
           initialItemTypeId: draft.draftItemTypeId,
+          initialBarcode: draft.draftBarcode,
+          initialBarcodeType: draft.draftBarcodeType,
+          initialBarcodeGeneratedAt: draft.draftBarcodeGeneratedAt,
           initialColorHex: draft.colorHex,
           initialPolygonPoints: points,
         ),
@@ -816,40 +822,7 @@ class _StorageLocationDetailScreenState
               ),
               const SizedBox(height: 16),
 
-              // Option 1: Draw Storage
-              _buildDrawerActionTile(
-                icon: Icons.crop_free,
-                iconColor: const Color(0xFF6366F1),
-                title: 'Draw Storage',
-                subtitle: 'Map a shelf, cabinet, or compartment on this photo',
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  setState(() {
-                    _isIdentifyingItems = false;
-                    _canvasMode = CanvasMode.edit;
-                  });
-                },
-              ),
-              const SizedBox(height: 8),
-
-              // Option 2: Draw Items
-              _buildDrawerActionTile(
-                icon: Icons.tag,
-                iconColor: const Color(0xFF10B981),
-                title: 'Draw Items',
-                subtitle:
-                    'Quickly tag and outline multiple items on the photo',
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  setState(() {
-                    _isIdentifyingItems = true;
-                    _canvasMode = CanvasMode.edit;
-                  });
-                },
-              ),
-              const SizedBox(height: 8),
-
-              // Option 3: Replace Image
+              // Option 1: Replace Image
               _buildDrawerActionTile(
                 icon: Icons.camera_alt_outlined,
                 iconColor: const Color(0xFF38BDF8),
@@ -1928,7 +1901,58 @@ class _StorageLocationDetailScreenState
 
         return Scaffold(
           appBar: AppBar(
-            title: Text(location.name),
+            title: breadcrumbsAsync.when(
+              data: (crumbs) {
+                if (crumbs.isEmpty) {
+                  return Text(location.name);
+                }
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      InkWell(
+                        borderRadius: BorderRadius.circular(6),
+                        onTap: () => context.go('/storage'),
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          child: Icon(Icons.home_outlined, size: 20, color: Color(0xFF818CF8)),
+                        ),
+                      ),
+                      for (int i = 0; i < crumbs.length; i++) ...[
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 4),
+                          child: Icon(Icons.chevron_right, size: 16, color: Color(0xFF64748B)),
+                        ),
+                        InkWell(
+                          borderRadius: BorderRadius.circular(6),
+                          onTap: i == crumbs.length - 1
+                              ? null
+                              : () => context.go('/storage/${crumbs[i].id}'),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                            child: Text(
+                              crumbs[i].name,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: i == crumbs.length - 1
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                                color: i == crumbs.length - 1
+                                    ? Colors.white
+                                    : const Color(0xFF94A3B8),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              },
+              loading: () => Text(location.name),
+              error: (_, _) => Text(location.name),
+            ),
             actions: [
               // Prominent "Edit" button activating the management panel
               Padding(
@@ -1960,57 +1984,7 @@ class _StorageLocationDetailScreenState
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. Breadcrumb Hierarchy Bar
-              breadcrumbsAsync.when(
-                data: (crumbs) {
-                  if (crumbs.isEmpty) return const SizedBox();
-                  return Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 8),
-                    color: const Color(0xFF131B2E),
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          InkWell(
-                            onTap: () => context.go('/storage'),
-                            child: const Icon(Icons.home,
-                                size: 18, color: Color(0xFF818CF8)),
-                          ),
-                          for (int i = 0; i < crumbs.length; i++) ...[
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 6),
-                              child: Icon(Icons.chevron_right,
-                                  size: 16, color: Color(0xFF64748B)),
-                            ),
-                            InkWell(
-                              onTap: () =>
-                                  context.go('/storage/${crumbs[i].id}'),
-                              child: Text(
-                                crumbs[i].name,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: i == crumbs.length - 1
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                  color: i == crumbs.length - 1
-                                      ? Colors.white
-                                      : const Color(0xFF94A3B8),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  );
-                },
-                loading: () => const SizedBox(),
-                error: (error, stackTrace) => const SizedBox(),
-              ),
-
-              // 2. Responsive Canvas (Desktop Dual-Pane Workspace vs Mobile Pinned Sliding Panel)
+              // Responsive Canvas (Desktop Dual-Pane Workspace vs Mobile Pinned Sliding Panel)
               Expanded(
                 child: LayoutBuilder(
                   builder: (context, constraints) {

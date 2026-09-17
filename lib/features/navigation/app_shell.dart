@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/widgets/barcode_scanner_dialog.dart';
+import '../../models/item_model.dart';
+import '../../models/storage_location_model.dart';
 import '../../models/sync_model.dart';
 import '../../state/auth_state.dart';
+import '../../state/item_state.dart';
 import '../../state/library_state.dart';
+import '../../state/repository_provider.dart';
+import '../../state/storage_state.dart';
 import '../../state/sync_state.dart';
+import '../items/add_edit_item_dialog.dart';
+import '../storage/add_edit_location_dialog.dart';
 
 class AppShell extends ConsumerWidget {
   final Widget child;
@@ -15,9 +23,10 @@ class AppShell extends ConsumerWidget {
     final location = GoRouterState.of(context).uri.toString();
     if (location.startsWith('/storage')) return 0;
     if (location.startsWith('/items')) return 1;
-    if (location.startsWith('/locator')) return 2;
-    if (location.startsWith('/lending')) return 3;
-    if (location.startsWith('/settings')) return 4;
+    if (location.startsWith('/lists')) return 2;
+    if (location.startsWith('/locator')) return 3;
+    if (location.startsWith('/lending')) return 4;
+    if (location.startsWith('/settings')) return 5;
     return 0;
   }
 
@@ -30,15 +39,132 @@ class AppShell extends ConsumerWidget {
         context.go('/items');
         break;
       case 2:
-        context.go('/locator');
+        context.go('/lists');
         break;
       case 3:
-        context.go('/lending');
+        context.go('/locator');
         break;
       case 4:
+        context.go('/lending');
+        break;
+      case 5:
         context.go('/settings');
         break;
     }
+  }
+
+  Future<void> _handleGlobalScan(BuildContext context, WidgetRef ref) async {
+    final scanned = await BarcodeScannerDialog.show(context, title: 'Scan Barcode or QR Code');
+    if (scanned == null || scanned.trim().isEmpty) return;
+
+    final query = scanned.trim();
+    final allLocations = ref.read(allStorageLocationsProvider).value ?? [];
+    final allItems = ref.read(libraryItemsProvider).value ?? [];
+
+    // 1. Check if matching storage location
+    final matchingLoc = allLocations.where((l) => l.barcode?.trim().toLowerCase() == query.toLowerCase()).firstOrNull;
+    if (matchingLoc != null) {
+      if (context.mounted) {
+        context.go('/storage/${matchingLoc.id}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Found Storage Location: ${matchingLoc.name}'),
+            backgroundColor: const Color(0xFF38BDF8),
+          ),
+        );
+      }
+      return;
+    }
+
+    // 2. Check if matching item
+    final matchingItem = allItems.where((i) => i.barcode?.trim().toLowerCase() == query.toLowerCase()).firstOrNull;
+    if (matchingItem != null) {
+      if (context.mounted) {
+        context.go('/items/${matchingItem.id}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Found Item: ${matchingItem.name}'),
+            backgroundColor: const Color(0xFF10B981),
+          ),
+        );
+      }
+      return;
+    }
+
+    // 3. Not found - offer to create a new storage area or item with this scanned barcode
+    if (!context.mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.search_off_rounded, color: Color(0xFFF59E0B)),
+            SizedBox(width: 8),
+            Text('No Match Found'),
+          ],
+        ),
+        content: Text(
+          'No storage container or item was found with code:\n\n"$query"\n\nWould you like to assign this code to a new record?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Dismiss'),
+          ),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.folder_outlined, size: 16),
+            label: const Text('New Storage Area'),
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              final selectedLib = ref.read(selectedLibraryProvider).value;
+              if (selectedLib != null) {
+                showDialog(
+                  context: context,
+                  builder: (dCtx) => AddEditLocationDialog(
+                    libraryId: selectedLib.id,
+                    initialBarcode: query,
+                    initialBarcodeType: 'scanned',
+                  ),
+                ).then((res) async {
+                  final loc = res is LocationDialogResult ? res.location : (res is StorageLocation ? res : null);
+                  if (loc != null) {
+                    await ref.read(repositoryProvider).saveStorageLocation(loc);
+                    ref.invalidate(allStorageLocationsProvider);
+                    ref.invalidate(storageLocationsProvider(null));
+                    if (context.mounted) context.go('/storage/${loc.id}');
+                  }
+                });
+              }
+            },
+          ),
+          FilledButton.icon(
+            icon: const Icon(Icons.inventory_2_outlined, size: 16),
+            label: const Text('New Item'),
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              final selectedLib = ref.read(selectedLibraryProvider).value;
+              if (selectedLib != null) {
+                showDialog(
+                  context: context,
+                  builder: (dCtx) => AddEditItemDialog(
+                    libraryId: selectedLib.id,
+                    initialBarcode: query,
+                    initialBarcodeType: 'scanned',
+                  ),
+                ).then((res) async {
+                  final item = res is ItemDialogResult ? res.item : (res is Item ? res : null);
+                  if (item != null) {
+                    await ref.read(repositoryProvider).saveItem(item);
+                    ref.invalidate(libraryItemsProvider);
+                    if (context.mounted) context.go('/items/${item.id}');
+                  }
+                });
+              }
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -51,6 +177,16 @@ class AppShell extends ConsumerWidget {
     final isWide = MediaQuery.of(context).size.width >= 800;
 
     return Scaffold(
+      floatingActionButton: isWide
+          ? null
+          : FloatingActionButton.small(
+              heroTag: 'global_scanner_fab',
+              backgroundColor: const Color(0xFF06B6D4),
+              foregroundColor: Colors.white,
+              tooltip: 'Scan Barcode / QR Code',
+              onPressed: () => _handleGlobalScan(context, ref),
+              child: const Icon(Icons.qr_code_scanner_rounded),
+            ),
       body: Row(
         children: [
           // Responsive Navigation Rail for Web / Desktop
@@ -83,6 +219,17 @@ class AppShell extends ConsumerWidget {
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                       ),
+                    ),
+                    const SizedBox(height: 14),
+                    FilledButton.tonalIcon(
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        backgroundColor: const Color(0xFF06B6D4).withValues(alpha: 0.15),
+                        foregroundColor: const Color(0xFF06B6D4),
+                      ),
+                      icon: const Icon(Icons.qr_code_scanner_rounded, size: 16),
+                      label: const Text('Scan', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      onPressed: () => _handleGlobalScan(context, ref),
                     ),
                   ],
                 ),
@@ -146,6 +293,11 @@ class AppShell extends ConsumerWidget {
                   label: Text('Items'),
                 ),
                 NavigationRailDestination(
+                  icon: Icon(Icons.checklist_rounded),
+                  selectedIcon: Icon(Icons.checklist_rounded),
+                  label: Text('Lists'),
+                ),
+                NavigationRailDestination(
                   icon: Icon(Icons.my_location_outlined),
                   selectedIcon: Icon(Icons.my_location),
                   label: Text('Locator'),
@@ -172,6 +324,7 @@ class AppShell extends ConsumerWidget {
       bottomNavigationBar: isWide
           ? null
           : BottomNavigationBar(
+              type: BottomNavigationBarType.fixed,
               currentIndex: selectedIndex,
               onTap: (idx) => _onItemTapped(idx, context),
               items: const [
@@ -184,6 +337,11 @@ class AppShell extends ConsumerWidget {
                   icon: Icon(Icons.inventory_2_outlined),
                   activeIcon: Icon(Icons.inventory_2),
                   label: 'Items',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.checklist_rounded),
+                  activeIcon: Icon(Icons.checklist_rounded),
+                  label: 'Lists',
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.my_location_outlined),

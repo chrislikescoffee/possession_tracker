@@ -1,5 +1,8 @@
+import 'package:barcode_widget/barcode_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
+import '../../core/utils/barcode_utils.dart';
+import '../../core/widgets/barcode_scanner_dialog.dart';
 import '../../models/polygon_region.dart';
 import '../../core/widgets/app_image_view.dart';
 import '../../core/widgets/image_picker_bottom_sheet.dart';
@@ -13,6 +16,9 @@ class LocationDialogResult {
   final bool isDrawRequested;
   final String? draftName;
   final String? draftDescription;
+  final String? draftBarcode;
+  final String? draftBarcodeType;
+  final DateTime? draftBarcodeGeneratedAt;
 
   const LocationDialogResult({
     this.location,
@@ -22,6 +28,9 @@ class LocationDialogResult {
     this.isDrawRequested = false,
     this.draftName,
     this.draftDescription,
+    this.draftBarcode,
+    this.draftBarcodeType,
+    this.draftBarcodeGeneratedAt,
   });
 }
 
@@ -32,6 +41,9 @@ class AddEditLocationDialog extends StatefulWidget {
   final bool allowDraw;
   final String? initialName;
   final String? initialDescription;
+  final String? initialBarcode;
+  final String? initialBarcodeType;
+  final DateTime? initialBarcodeGeneratedAt;
   final int? initialColorHex;
   final List<NormalizedPoint>? initialPolygonPoints;
   final bool initialUseCroppedPhoto;
@@ -44,6 +56,9 @@ class AddEditLocationDialog extends StatefulWidget {
     this.allowDraw = false,
     this.initialName,
     this.initialDescription,
+    this.initialBarcode,
+    this.initialBarcodeType,
+    this.initialBarcodeGeneratedAt,
     this.initialColorHex,
     this.initialPolygonPoints,
     this.initialUseCroppedPhoto = true,
@@ -57,8 +72,12 @@ class _AddEditLocationDialogState extends State<AddEditLocationDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _descController;
+  late final TextEditingController _barcodeController;
   final _imageUrlController = TextEditingController();
 
+  String? _barcodeType;
+  DateTime? _barcodeGeneratedAt;
+  DateTime? _barcodeLastPrintedAt;
   late int _selectedColorHex;
   late bool _useCroppedPhoto;
   List<NormalizedPoint>? _polygonPoints;
@@ -81,6 +100,13 @@ class _AddEditLocationDialogState extends State<AddEditLocationDialog> {
     _descController = TextEditingController(
       text: widget.initialDescription ?? widget.locationToEdit?.description ?? '',
     );
+    _barcodeController = TextEditingController(
+      text: widget.initialBarcode ?? widget.locationToEdit?.barcode ?? '',
+    );
+    _barcodeType = widget.initialBarcodeType ?? widget.locationToEdit?.barcodeType;
+    _barcodeGeneratedAt = widget.initialBarcodeGeneratedAt ?? widget.locationToEdit?.barcodeGeneratedAt;
+    _barcodeLastPrintedAt = widget.locationToEdit?.barcodeLastPrintedAt;
+
     _selectedColorHex = widget.initialColorHex ?? _paletteColors.first;
     _useCroppedPhoto = widget.initialUseCroppedPhoto;
     _polygonPoints = widget.initialPolygonPoints;
@@ -94,6 +120,7 @@ class _AddEditLocationDialogState extends State<AddEditLocationDialog> {
   void dispose() {
     _nameController.dispose();
     _descController.dispose();
+    _barcodeController.dispose();
     _imageUrlController.dispose();
     super.dispose();
   }
@@ -104,6 +131,9 @@ class _AddEditLocationDialogState extends State<AddEditLocationDialog> {
         isDrawRequested: true,
         draftName: _nameController.text.trim(),
         draftDescription: _descController.text.trim(),
+        draftBarcode: _barcodeController.text.trim().isEmpty ? null : _barcodeController.text.trim(),
+        draftBarcodeType: _barcodeType,
+        draftBarcodeGeneratedAt: _barcodeGeneratedAt,
         colorHex: _selectedColorHex,
         useCroppedPhoto: _useCroppedPhoto,
         polygonPoints: _polygonPoints,
@@ -121,6 +151,10 @@ class _AddEditLocationDialogState extends State<AddEditLocationDialog> {
       name: _nameController.text.trim(),
       description: _descController.text.trim().isEmpty ? null : _descController.text.trim(),
       imageUrl: _imageUrlController.text.trim().isEmpty ? null : _imageUrlController.text.trim(),
+      barcode: _barcodeController.text.trim().isEmpty ? null : _barcodeController.text.trim(),
+      barcodeType: _barcodeType,
+      barcodeGeneratedAt: _barcodeGeneratedAt,
+      barcodeLastPrintedAt: _barcodeLastPrintedAt,
       regions: widget.locationToEdit?.regions ?? [],
       createdAt: widget.locationToEdit?.createdAt ?? DateTime.now(),
     );
@@ -243,6 +277,150 @@ class _AddEditLocationDialogState extends State<AddEditLocationDialog> {
                       ),
                     );
                   }).toList(),
+                ),
+                const SizedBox(height: 18),
+
+                // Barcode / QR Code Section
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF263352)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.qr_code_2_rounded, size: 20, color: Color(0xFF38BDF8)),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Barcode / QR Code',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFE2E8F0),
+                            ),
+                          ),
+                          const Spacer(),
+                          if (_barcodeController.text.isNotEmpty)
+                            TextButton.icon(
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                visualDensity: VisualDensity.compact,
+                                foregroundColor: const Color(0xFFF43F5E),
+                              ),
+                              icon: const Icon(Icons.clear_rounded, size: 16),
+                              label: const Text('Remove', style: TextStyle(fontSize: 12)),
+                              onPressed: () {
+                                setState(() {
+                                  _barcodeController.clear();
+                                  _barcodeType = null;
+                                  _barcodeGeneratedAt = null;
+                                });
+                              },
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      if (_barcodeController.text.isNotEmpty) ...[
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: BarcodeWidget(
+                                barcode: Barcode.qrCode(),
+                                data: _barcodeController.text,
+                                width: 64,
+                                height: 64,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _barcodeController.text,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      fontFamily: 'monospace',
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _barcodeGeneratedAt != null
+                                        ? 'Generated code (Ready to print)'
+                                        : 'Scanned / Custom code',
+                                    style: TextStyle(
+                                      color: _barcodeGeneratedAt != null
+                                          ? const Color(0xFF34D399)
+                                          : const Color(0xFF94A3B8),
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                side: const BorderSide(color: Color(0xFF38BDF8)),
+                                foregroundColor: const Color(0xFF38BDF8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
+                              label: const Text('Scan Code', style: TextStyle(fontSize: 12)),
+                              onPressed: () async {
+                                final scanned = await BarcodeScannerDialog.show(context, title: 'Scan Area Code');
+                                if (scanned != null && scanned.isNotEmpty) {
+                                  setState(() {
+                                    _barcodeController.text = scanned;
+                                    _barcodeType = 'scanned';
+                                    _barcodeGeneratedAt = null;
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: FilledButton.tonalIcon(
+                              style: FilledButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                backgroundColor: const Color(0xFF06B6D4).withValues(alpha: 0.15),
+                                foregroundColor: const Color(0xFF06B6D4),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                              label: const Text('Generate QR Code', style: TextStyle(fontSize: 12)),
+                              onPressed: () {
+                                setState(() {
+                                  _barcodeController.text = BarcodeUtils.generateLocationBarcode();
+                                  _barcodeType = 'qr';
+                                  _barcodeGeneratedAt = DateTime.now();
+                                });
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 18),
 

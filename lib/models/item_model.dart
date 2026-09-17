@@ -25,6 +25,13 @@ class Item {
   // Status lifecycle: stored, in_use, lent, lost
   final String status;
 
+  // Barcode / QR Code metadata
+  final String? barcode;
+  final String? barcodeType;
+  final DateTime? barcodeGeneratedAt;
+  final DateTime? barcodeLastPrintedAt;
+  final bool mustScanIn;
+
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -43,6 +50,11 @@ class Item {
     this.temporaryLocationNote,
     this.temporaryLocationId,
     this.status = AppConstants.itemStatusStored,
+    this.barcode,
+    this.barcodeType,
+    this.barcodeGeneratedAt,
+    this.barcodeLastPrintedAt,
+    this.mustScanIn = false,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -51,6 +63,7 @@ class Item {
   bool get isRelocated => status == AppConstants.itemStatusRelocated;
   bool get isLentOut => status == AppConstants.itemStatusLent;
   bool get hasPolygon => polygonPoints.length >= 3;
+  bool get hasBarcode => barcode != null && barcode!.trim().isNotEmpty;
   String get effectiveItemTypeName => (itemTypeName != null && itemTypeName!.isNotEmpty)
       ? itemTypeName!
       : 'Generic Item';
@@ -88,6 +101,15 @@ class Item {
       temporaryLocationNote: json['temporary_location_note'] as String?,
       temporaryLocationId: json['temporary_location_id'] as String?,
       status: json['status'] as String? ?? AppConstants.itemStatusStored,
+      barcode: json['barcode'] as String?,
+      barcodeType: json['barcode_type'] as String?,
+      barcodeGeneratedAt: json['barcode_generated_at'] != null
+          ? DateTime.tryParse(json['barcode_generated_at'] as String)
+          : null,
+      barcodeLastPrintedAt: json['barcode_last_printed_at'] != null
+          ? DateTime.tryParse(json['barcode_last_printed_at'] as String)
+          : null,
+      mustScanIn: json['must_scan_in'] as bool? ?? false,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : DateTime.now(),
@@ -112,6 +134,11 @@ class Item {
         'temporary_location_note': temporaryLocationNote,
         'temporary_location_id': temporaryLocationId,
         'status': status,
+        'barcode': barcode,
+        'barcode_type': barcodeType,
+        'barcode_generated_at': barcodeGeneratedAt?.toIso8601String(),
+        'barcode_last_printed_at': barcodeLastPrintedAt?.toIso8601String(),
+        'must_scan_in': mustScanIn,
         'created_at': createdAt.toIso8601String(),
         'updated_at': updatedAt.toIso8601String(),
       };
@@ -131,6 +158,11 @@ class Item {
     String? temporaryLocationNote,
     String? temporaryLocationId,
     String? status,
+    String? barcode,
+    String? barcodeType,
+    DateTime? barcodeGeneratedAt,
+    DateTime? barcodeLastPrintedAt,
+    bool? mustScanIn,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -149,6 +181,11 @@ class Item {
       temporaryLocationNote: temporaryLocationNote ?? this.temporaryLocationNote,
       temporaryLocationId: temporaryLocationId ?? this.temporaryLocationId,
       status: status ?? this.status,
+      barcode: barcode ?? this.barcode,
+      barcodeType: barcodeType ?? this.barcodeType,
+      barcodeGeneratedAt: barcodeGeneratedAt ?? this.barcodeGeneratedAt,
+      barcodeLastPrintedAt: barcodeLastPrintedAt ?? this.barcodeLastPrintedAt,
+      mustScanIn: mustScanIn ?? this.mustScanIn,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

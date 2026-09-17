@@ -1,8 +1,16 @@
-import '../models/library_model.dart';
-import '../models/storage_location_model.dart';
+import '../models/item_list_model.dart';
 import '../models/item_model.dart';
 import '../models/item_type_model.dart';
 import '../models/lending_record_model.dart';
+import '../models/library_model.dart';
+import '../models/storage_location_model.dart';
+
+class MustScanInException implements Exception {
+  final String message;
+  const MustScanInException([this.message = 'Item requires barcode scan to return.']);
+  @override
+  String toString() => message;
+}
 
 abstract class InventoryRepository {
   // Library operations
@@ -51,7 +59,7 @@ abstract class InventoryRepository {
   // Relocation
   Future<void> permanentlyRelocateItem(String itemId, String newLocationId);
   Future<void> temporarilyRelocateItem(String itemId, String note, {String? tempLocationId});
-  Future<void> returnItemToPermanentLocation(String itemId);
+  Future<void> returnItemToPermanentLocation(String itemId, {String? scannedBarcode, bool bypassScanVerification = false});
 
   // Lending operations
   Future<List<LendingRecord>> getLendingRecords(String libraryId, {String? itemId});
@@ -63,5 +71,26 @@ abstract class InventoryRepository {
     DateTime? expectedReturnAt,
     String? notes,
   });
-  Future<void> returnLentItem(String lendingRecordId);
+  Future<void> returnLentItem(String lendingRecordId, {String? scannedBarcode, bool bypassScanVerification = false});
+
+  // Item List operations
+  Future<List<ItemList>> getItemLists(String libraryId);
+  Future<ItemList?> getItemList(String id);
+  Future<ItemList> saveItemList(ItemList list);
+  Future<void> deleteItemList(String id);
+  Future<void> collectItemInList({
+    required String listId,
+    required String itemId,
+    required bool isCollected,
+  });
+  Future<void> addItemToList({
+    required String listId,
+    required String itemId,
+    bool isCollected = false,
+  });
+  Future<void> returnSelectedItemsInList({
+    required String listId,
+    required List<String> itemIds,
+    Map<String, String>? verifiedBarcodes,
+  });
 }
