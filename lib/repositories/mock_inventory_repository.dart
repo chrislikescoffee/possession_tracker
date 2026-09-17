@@ -8,6 +8,7 @@ import '../models/lending_record_model.dart';
 import '../models/library_model.dart';
 import '../models/polygon_region.dart';
 import '../models/storage_location_model.dart';
+import '../core/utils/field_query_utils.dart';
 import 'inventory_repository.dart';
 
 class MockInventoryRepository implements InventoryRepository {
@@ -511,11 +512,7 @@ class MockInventoryRepository implements InventoryRepository {
       }
       if (searchQuery != null && searchQuery.trim().isNotEmpty) {
         final q = searchQuery.toLowerCase().trim();
-        final nameMatch = item.name.toLowerCase().contains(q);
-        final descMatch = (item.description ?? '').toLowerCase().contains(q);
-        final fieldsMatch = item.customFields.values
-            .any((v) => v.toString().toLowerCase().contains(q));
-        return nameMatch || descMatch || fieldsMatch;
+        return FieldQueryUtils.itemMatchesSearch(item, q);
       }
       return true;
     }).toList();

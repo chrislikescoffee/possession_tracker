@@ -999,6 +999,24 @@ class _ItemCard extends StatelessWidget {
                         style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
                       ),
                     ],
+                    if (item.tags.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Wrap(
+                        spacing: 4,
+                        runSpacing: 2,
+                        children: item.tags.take(3).map((tag) => Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF334155).withValues(alpha: 0.6),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '#$tag',
+                            style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+                          ),
+                        )).toList(),
+                      ),
+                    ],
                     const SizedBox(height: 8),
 
                     // Relocation / Lending Status Banner

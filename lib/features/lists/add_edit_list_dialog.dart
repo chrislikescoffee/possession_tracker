@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
+import '../../core/utils/field_query_utils.dart';
 import '../../core/widgets/app_image_view.dart';
 import '../../models/item_list_model.dart';
+import '../../models/item_model.dart';
 import '../../models/storage_location_model.dart';
 import '../../state/item_state.dart';
+import '../../state/item_type_state.dart';
 import '../../state/storage_state.dart';
 
 class AddEditListDialog extends ConsumerStatefulWidget {
@@ -26,16 +28,14 @@ class _AddEditListDialogState extends ConsumerState<AddEditListDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _descController;
-  late final TextEditingController _freeTextNoteController;
-  late final TextEditingController _borrowerNameController;
-  late final TextEditingController _borrowerContactController;
   final TextEditingController _searchController = TextEditingController();
 
-  late ListDestinationType _destinationType;
-  String? _selectedLocationId;
-  DateTime? _dueDate;
   final Set<String> _selectedItemIds = {};
+  final List<String> _orderedItemIds = [];
+  bool _initializedOrder = false;
+
   String _searchQuery = '';
+  String? _selectedItemTypeId;
 
   @override
   void initState() {
@@ -43,15 +43,12 @@ class _AddEditListDialogState extends ConsumerState<AddEditListDialog> {
     final edit = widget.listToEdit;
     _nameController = TextEditingController(text: edit?.name ?? '');
     _descController = TextEditingController(text: edit?.description ?? '');
-    _destinationType = edit?.destinationType ?? ListDestinationType.notRelocating;
-    _selectedLocationId = edit?.targetLocationId;
-    _freeTextNoteController = TextEditingController(text: edit?.freeTextNote ?? '');
-    _borrowerNameController = TextEditingController(text: edit?.borrowerName ?? '');
-    _borrowerContactController = TextEditingController(text: edit?.borrowerContact ?? '');
-    _dueDate = edit?.dueDate;
 
     if (edit != null) {
-      _selectedItemIds.addAll(edit.items.map((e) => e.itemId));
+      for (final e in edit.items) {
+        _selectedItemIds.add(e.itemId);
+        _orderedItemIds.add(e.itemId);
+      }
     }
   }
 
@@ -59,9 +56,6 @@ class _AddEditListDialogState extends ConsumerState<AddEditListDialog> {
   void dispose() {
     _nameController.dispose();
     _descController.dispose();
-    _freeTextNoteController.dispose();
-    _borrowerNameController.dispose();
-    _borrowerContactController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -81,6 +75,17 @@ class _AddEditListDialogState extends ConsumerState<AddEditListDialog> {
     return segments.isEmpty ? 'Unassigned' : segments.join(' > ');
   }
 
+  void _syncInitialOrder(List<Item> allItems) {
+    if (_initializedOrder) return;
+    final existingSet = _orderedItemIds.toSet();
+    for (final item in allItems) {
+      if (!existingSet.contains(item.id)) {
+        _orderedItemIds.add(item.id);
+      }
+    }
+    _initializedOrder = true;
+  }
+
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
 
@@ -92,7 +97,10 @@ class _AddEditListDialogState extends ConsumerState<AddEditListDialog> {
       for (final e in edit?.items ?? <ItemListItemEntry>[]) e.itemId: e
     };
 
-    final entries = _selectedItemIds.map((itemId) {
+    // Build entries in the reordered sequence
+    final entries = _orderedItemIds
+        .where((id) => _selectedItemIds.contains(id))
+        .map((itemId) {
       if (existingEntriesMap.containsKey(itemId)) {
         return existingEntriesMap[itemId]!;
       }
@@ -107,18 +115,12 @@ class _AddEditListDialogState extends ConsumerState<AddEditListDialog> {
       libraryId: widget.libraryId,
       name: _nameController.text.trim(),
       description: _descController.text.trim().isEmpty ? null : _descController.text.trim(),
-      destinationType: _destinationType,
-      targetLocationId: _destinationType == ListDestinationType.storageLocation ? _selectedLocationId : null,
-      freeTextNote: _destinationType == ListDestinationType.freeText
-          ? (_freeTextNoteController.text.trim().isEmpty ? null : _freeTextNoteController.text.trim())
-          : null,
-      borrowerName: _destinationType == ListDestinationType.lend
-          ? (_borrowerNameController.text.trim().isEmpty ? null : _borrowerNameController.text.trim())
-          : null,
-      borrowerContact: _destinationType == ListDestinationType.lend
-          ? (_borrowerContactController.text.trim().isEmpty ? null : _borrowerContactController.text.trim())
-          : null,
-      dueDate: _destinationType == ListDestinationType.lend ? _dueDate : null,
+      destinationType: edit?.destinationType ?? ListDestinationType.notRelocating,
+      targetLocationId: edit?.targetLocationId,
+      freeTextNote: edit?.freeTextNote,
+      borrowerName: edit?.borrowerName,
+      borrowerContact: edit?.borrowerContact,
+      dueDate: edit?.dueDate,
       items: entries,
       createdAt: edit?.createdAt ?? now,
       updatedAt: now,
@@ -135,15 +137,17 @@ class _AddEditListDialogState extends ConsumerState<AddEditListDialog> {
 
     final itemsAsync = ref.watch(libraryItemsProvider);
     final locationsAsync = ref.watch(allStorageLocationsProvider);
+    final typesAsync = ref.watch(itemTypesProvider);
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 640, maxHeight: 760),
+        constraints: const BoxConstraints(maxWidth: 680, maxHeight: 820),
         child: Form(
           key: _formKey,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Header
               Container(
@@ -171,10 +175,11 @@ class _AddEditListDialogState extends ConsumerState<AddEditListDialog> {
                 ),
               ),
 
-              // Scrollable content
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.all(20),
+              // Top Inputs (Name, Description, Search, Type Filter)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // List Name
                     TextFormField(
@@ -187,7 +192,7 @@ class _AddEditListDialogState extends ConsumerState<AddEditListDialog> {
                       validator: (val) =>
                           val == null || val.trim().isEmpty ? 'Please enter a list name' : null,
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 10),
 
                     // Description
                     TextFormField(
@@ -199,321 +204,359 @@ class _AddEditListDialogState extends ConsumerState<AddEditListDialog> {
                         prefixIcon: Icon(Icons.notes_rounded, size: 20),
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 12),
 
-                    // Destination Setting Card
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerLowest,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(Icons.near_me_rounded, size: 20, color: colorScheme.primary),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Items Moving To (Destination)',
-                                style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Decide what happens when an item is collected / ticked on this list.',
-                            style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
-                          ),
-                          const SizedBox(height: 12),
-
-                          DropdownButtonFormField<ListDestinationType>(
-                            initialValue: _destinationType,
-                            decoration: const InputDecoration(
-                              labelText: 'Destination Mode',
-                              prefixIcon: Icon(Icons.swap_horiz_rounded, size: 20),
-                            ),
-                            items: ListDestinationType.values.map((type) {
-                              return DropdownMenuItem(
-                                value: type,
-                                child: Text(type.displayName),
-                              );
-                            }).toList(),
-                            onChanged: (val) {
-                              if (val != null) {
-                                setState(() => _destinationType = val);
-                              }
-                            },
-                          ),
-
-                          // Secondary inputs based on mode
-                          if (_destinationType == ListDestinationType.storageLocation) ...[
-                            const SizedBox(height: 12),
-                            locationsAsync.when(
-                              data: (locations) {
-                                final locMap = {for (final l in locations) l.id: l};
-                                return DropdownButtonFormField<String>(
-                                  initialValue: _selectedLocationId,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Target Storage Area *',
-                                    prefixIcon: Icon(Icons.folder_outlined, size: 20),
-                                  ),
-                                  validator: (val) =>
-                                      val == null ? 'Please select a storage location' : null,
-                                  items: locations.map((loc) {
-                                    final path = _buildLocationPath(loc.id, locMap);
-                                    return DropdownMenuItem(
-                                      value: loc.id,
-                                      child: Text(
-                                        path,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    );
-                                  }).toList(),
-                                  onChanged: (val) {
-                                    setState(() => _selectedLocationId = val);
-                                  },
-                                );
-                              },
-                              loading: () => const LinearProgressIndicator(),
-                              error: (e, _) => Text('Error loading locations: $e'),
-                            ),
-                          ] else if (_destinationType == ListDestinationType.freeText) ...[
-                            const SizedBox(height: 12),
-                            TextFormField(
-                              controller: _freeTextNoteController,
-                              decoration: const InputDecoration(
-                                labelText: 'Temporary Location Note *',
-                                hintText: 'e.g. Workbench Bay 2, Van Trunk, Job Site Alpha',
-                                prefixIcon: Icon(Icons.edit_location_alt_rounded, size: 20),
-                              ),
-                              validator: (val) =>
-                                  val == null || val.trim().isEmpty ? 'Please enter a note' : null,
-                            ),
-                          ] else if (_destinationType == ListDestinationType.lend) ...[
-                            const SizedBox(height: 12),
-                            TextFormField(
-                              controller: _borrowerNameController,
-                              decoration: const InputDecoration(
-                                labelText: 'Borrower Name *',
-                                hintText: 'e.g. John Doe',
-                                prefixIcon: Icon(Icons.person_outline_rounded, size: 20),
-                              ),
-                              validator: (val) =>
-                                  val == null || val.trim().isEmpty ? 'Borrower name is required' : null,
-                            ),
-                            const SizedBox(height: 12),
-                            TextFormField(
-                              controller: _borrowerContactController,
-                              decoration: const InputDecoration(
-                                labelText: 'Borrower Contact (Optional)',
-                                hintText: 'e.g. +61 400 123 456, email@example.com',
-                                prefixIcon: Icon(Icons.phone_outlined, size: 20),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            InkWell(
-                              onTap: () async {
-                                final picked = await showDatePicker(
-                                  context: context,
-                                  initialDate: _dueDate ?? DateTime.now().add(const Duration(days: 7)),
-                                  firstDate: DateTime.now(),
-                                  lastDate: DateTime.now().add(const Duration(days: 365)),
-                                );
-                                if (picked != null) {
-                                  setState(() => _dueDate = picked);
-                                }
-                              },
-                              borderRadius: BorderRadius.circular(12),
-                              child: InputDecorator(
-                                decoration: const InputDecoration(
-                                  labelText: 'Expected Due Date (Optional)',
-                                  prefixIcon: Icon(Icons.calendar_today_rounded, size: 20),
-                                ),
-                                child: Text(
-                                  _dueDate != null ? DateFormat.yMMMd().format(_dueDate!) : 'No return date specified',
-                                  style: TextStyle(
-                                    color: _dueDate != null ? theme.textTheme.bodyMedium?.color : theme.hintColor,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ] else ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              'Items will be checked on this list without changing their stored or relocated status in your inventory.',
-                              style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Item Selection Header
+                    // Search & Item Type Filter Row
                     Row(
                       children: [
-                        Icon(Icons.inventory_2_outlined, size: 20, color: colorScheme.primary),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Select Items (${_selectedItemIds.length} Selected)',
-                          style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                        // Search Box
+                        Expanded(
+                          flex: 3,
+                          child: TextField(
+                            controller: _searchController,
+                            decoration: InputDecoration(
+                              hintText: 'Search items, tags, codes, types...',
+                              prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                              isDense: true,
+                              suffixIcon: _searchQuery.isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(Icons.clear, size: 18),
+                                      onPressed: () {
+                                        _searchController.clear();
+                                        setState(() => _searchQuery = '');
+                                      },
+                                    )
+                                  : null,
+                            ),
+                            onChanged: (val) {
+                              setState(() => _searchQuery = val.trim().toLowerCase());
+                            },
+                          ),
                         ),
-                        const Spacer(),
-                        TextButton(
-                          onPressed: () {
-                            setState(() => _selectedItemIds.clear());
-                          },
-                          child: const Text('Clear All'),
+                        const SizedBox(width: 10),
+
+                        // Item Type Dropdown Filter
+                        Expanded(
+                          flex: 2,
+                          child: typesAsync.when(
+                            data: (types) {
+                              return DropdownButtonFormField<String?>(
+                                initialValue: _selectedItemTypeId,
+                                isDense: true,
+                                isExpanded: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'Item Type',
+                                  prefixIcon: Icon(Icons.category_outlined, size: 18),
+                                ),
+                                items: [
+                                  const DropdownMenuItem<String?>(
+                                    value: null,
+                                    child: Text('All Types', style: TextStyle(fontSize: 13)),
+                                  ),
+                                  ...types.map((t) => DropdownMenuItem<String?>(
+                                        value: t.id,
+                                        child: Text(t.name, style: const TextStyle(fontSize: 13)),
+                                      )),
+                                ],
+                                onChanged: (val) {
+                                  setState(() => _selectedItemTypeId = val);
+                                },
+                              );
+                            },
+                            loading: () => const SizedBox(),
+                            error: (_, _) => const SizedBox(),
+                          ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
 
-                    // Search box for items
-                    TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: 'Filter items by name or code...',
-                        prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                        isDense: true,
-                        suffixIcon: _searchQuery.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear, size: 18),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  setState(() => _searchQuery = '');
-                                },
-                              )
-                            : null,
-                      ),
-                      onChanged: (val) {
-                        setState(() => _searchQuery = val.trim().toLowerCase());
-                      },
-                    ),
-                    const SizedBox(height: 12),
+              // Items Header & Selection Controls
+              itemsAsync.when(
+                loading: () => const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32),
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
+                error: (err, _) => Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Text('Error loading items: $err'),
+                ),
+                data: (allItems) {
+                  _syncInitialOrder(allItems);
+                  final itemMap = {for (final i in allItems) i.id: i};
 
-                    // Item List Checkboxes
-                    itemsAsync.when(
-                      loading: () => const Center(child: Padding(
-                        padding: EdgeInsets.all(24.0),
-                        child: CircularProgressIndicator(),
-                      )),
-                      error: (err, _) => Text('Error loading items: $err'),
-                      data: (items) {
-                        return locationsAsync.when(
-                          loading: () => const Center(child: CircularProgressIndicator()),
-                          error: (err, _) => Text('Error loading locations: $err'),
-                          data: (locations) {
-                            final locMap = {for (final l in locations) l.id: l};
+                  return locationsAsync.when(
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (err, _) => Text('Error loading locations: $err'),
+                    data: (locations) {
+                      final locMap = {for (final l in locations) l.id: l};
 
-                            final filtered = items.where((it) {
-                              if (_searchQuery.isEmpty) return true;
-                              return it.name.toLowerCase().contains(_searchQuery) ||
-                                  (it.barcode?.toLowerCase().contains(_searchQuery) ?? false) ||
-                                  (it.description?.toLowerCase().contains(_searchQuery) ?? false);
-                            }).toList();
-
-                            if (filtered.isEmpty) {
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 24),
-                                child: Center(
-                                  child: Text(
-                                    items.isEmpty
-                                        ? 'No items found in this library.'
-                                        : 'No items matching "$_searchQuery"',
-                                    style: TextStyle(color: theme.hintColor),
-                                  ),
-                                ),
-                              );
+                      // Filter items while respecting _orderedItemIds sequence
+                      final filteredItems = _orderedItemIds
+                          .map((id) => itemMap[id])
+                          .whereType<Item>()
+                          .where((it) {
+                            if (_selectedItemTypeId != null &&
+                                _selectedItemTypeId!.isNotEmpty &&
+                                it.itemTypeId != _selectedItemTypeId) {
+                              return false;
                             }
+                            if (_searchQuery.isNotEmpty &&
+                                !FieldQueryUtils.itemMatchesSearch(it, _searchQuery)) {
+                              return false;
+                            }
+                            return true;
+                          })
+                          .toList();
 
-                            return Container(
-                              decoration: BoxDecoration(
-                                border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: ListView.separated(
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  itemCount: filtered.length,
-                                  separatorBuilder: (_, _) => const Divider(height: 1),
-                                  itemBuilder: (ctx, idx) {
-                                    final it = filtered[idx];
-                                    final isSelected = _selectedItemIds.contains(it.id);
-                                    final locPath = _buildLocationPath(it.storageLocationId, locMap);
+                      final allFilteredSelected = filteredItems.isNotEmpty &&
+                          filteredItems.every((it) => _selectedItemIds.contains(it.id));
 
-                                    return CheckboxListTile(
-                                      value: isSelected,
-                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                      secondary: AppImageView(
-                                        imageUrl: it.primaryImageUrl,
-                                        width: 44,
-                                        height: 44,
-                                        borderRadius: BorderRadius.circular(8),
+                      return Expanded(
+                        child: Column(
+                          children: [
+                            // Toolbar: count & Select All / Deselect All
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    'Items (${_selectedItemIds.length} Selected)',
+                                    style: theme.textTheme.titleSmall
+                                        ?.copyWith(fontWeight: FontWeight.bold),
+                                  ),
+                                  const Spacer(),
+                                  if (filteredItems.isNotEmpty)
+                                    TextButton.icon(
+                                      style: TextButton.styleFrom(
+                                        visualDensity: VisualDensity.compact,
                                       ),
-                                      title: Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              it.name,
-                                              style: TextStyle(
-                                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                              ),
-                                            ),
-                                          ),
-                                          if (it.mustScanIn) ...[
-                                            const SizedBox(width: 6),
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFF10B981).withValues(alpha: 0.15),
-                                                borderRadius: BorderRadius.circular(4),
-                                                border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.4)),
-                                              ),
-                                              child: const Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Icon(Icons.qr_code_scanner, size: 12, color: Color(0xFF10B981)),
-                                                  SizedBox(width: 4),
-                                                  Text(
-                                                    'Must Scan',
-                                                    style: TextStyle(fontSize: 10, color: Color(0xFF10B981), fontWeight: FontWeight.bold),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                        ],
+                                      icon: Icon(
+                                        allFilteredSelected
+                                            ? Icons.deselect_rounded
+                                            : Icons.select_all_rounded,
+                                        size: 18,
                                       ),
-                                      subtitle: Text(
-                                        locPath,
-                                        style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
-                                      ),
-                                      onChanged: (val) {
+                                      label: Text(allFilteredSelected ? 'Deselect All' : 'Select All'),
+                                      onPressed: () {
                                         setState(() {
-                                          if (val == true) {
-                                            _selectedItemIds.add(it.id);
+                                          if (allFilteredSelected) {
+                                            for (final it in filteredItems) {
+                                              _selectedItemIds.remove(it.id);
+                                            }
                                           } else {
-                                            _selectedItemIds.remove(it.id);
+                                            for (final it in filteredItems) {
+                                              _selectedItemIds.add(it.id);
+                                            }
                                           }
                                         });
                                       },
-                                    );
-                                  },
-                                ),
+                                    ),
+                                  if (_selectedItemIds.isNotEmpty)
+                                    TextButton(
+                                      style: TextButton.styleFrom(
+                                        visualDensity: VisualDensity.compact,
+                                      ),
+                                      onPressed: () {
+                                        setState(() => _selectedItemIds.clear());
+                                      },
+                                      child: const Text('Clear All'),
+                                    ),
+                                ],
                               ),
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ],
-                ),
+                            ),
+
+                            // Items Reorderable List
+                            Expanded(
+                              child: filteredItems.isEmpty
+                                  ? Center(
+                                      child: Text(
+                                        allItems.isEmpty
+                                            ? 'No items found in this library.'
+                                            : 'No items matching your search or filters.',
+                                        style: TextStyle(color: theme.hintColor),
+                                      ),
+                                    )
+                                  : Container(
+                                      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        border: Border.all(
+                                            color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: ReorderableListView.builder(
+                                          buildDefaultDragHandles: false,
+                                          itemCount: filteredItems.length,
+                                          onReorder: (oldIndex, newIndex) {
+                                            setState(() {
+                                              if (newIndex > oldIndex) newIndex -= 1;
+                                              final movedItem = filteredItems[oldIndex];
+                                              _orderedItemIds.remove(movedItem.id);
+
+                                              if (newIndex >= filteredItems.length - 1) {
+                                                final targetAfter = filteredItems.last;
+                                                final targetIdx =
+                                                    _orderedItemIds.indexOf(targetAfter.id);
+                                                _orderedItemIds.insert(targetIdx + 1, movedItem.id);
+                                              } else {
+                                                final targetBefore = filteredItems[newIndex];
+                                                final targetIdx =
+                                                    _orderedItemIds.indexOf(targetBefore.id);
+                                                _orderedItemIds.insert(targetIdx, movedItem.id);
+                                              }
+                                            });
+                                          },
+                                          itemBuilder: (ctx, idx) {
+                                            final it = filteredItems[idx];
+                                            final isSelected = _selectedItemIds.contains(it.id);
+                                            final locPath =
+                                                _buildLocationPath(it.storageLocationId, locMap);
+
+                                            return ListTile(
+                                              key: ValueKey(it.id),
+                                              contentPadding:
+                                                  const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                                              leading: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Checkbox(
+                                                    value: isSelected,
+                                                    onChanged: (val) {
+                                                      setState(() {
+                                                        if (val == true) {
+                                                          _selectedItemIds.add(it.id);
+                                                        } else {
+                                                          _selectedItemIds.remove(it.id);
+                                                        }
+                                                      });
+                                                    },
+                                                  ),
+                                                  AppImageView(
+                                                    imageUrl: it.primaryImageUrl,
+                                                    width: 40,
+                                                    height: 40,
+                                                    borderRadius: BorderRadius.circular(8),
+                                                  ),
+                                                ],
+                                              ),
+                                              title: Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: Text(
+                                                      it.name,
+                                                      style: TextStyle(
+                                                        fontWeight: isSelected
+                                                            ? FontWeight.bold
+                                                            : FontWeight.normal,
+                                                      ),
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                  if (it.mustScanIn) ...[
+                                                    const SizedBox(width: 6),
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(
+                                                          horizontal: 6, vertical: 2),
+                                                      decoration: BoxDecoration(
+                                                        color: const Color(0xFF10B981)
+                                                            .withValues(alpha: 0.15),
+                                                        borderRadius: BorderRadius.circular(4),
+                                                        border: Border.all(
+                                                            color: const Color(0xFF10B981)
+                                                                .withValues(alpha: 0.4)),
+                                                      ),
+                                                      child: const Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          Icon(Icons.qr_code_scanner,
+                                                              size: 12, color: Color(0xFF10B981)),
+                                                          SizedBox(width: 4),
+                                                          Text(
+                                                            'Must Scan',
+                                                            style: TextStyle(
+                                                                fontSize: 10,
+                                                                color: Color(0xFF10B981),
+                                                                fontWeight: FontWeight.bold),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ],
+                                              ),
+                                              subtitle: Row(
+                                                children: [
+                                                  if (it.effectiveItemTypeName != 'Generic Item') ...[
+                                                    Container(
+                                                      margin: const EdgeInsets.only(right: 6),
+                                                      padding: const EdgeInsets.symmetric(
+                                                          horizontal: 5, vertical: 1),
+                                                      decoration: BoxDecoration(
+                                                        color: const Color(0xFF38BDF8)
+                                                            .withValues(alpha: 0.15),
+                                                        borderRadius: BorderRadius.circular(4),
+                                                      ),
+                                                      child: Text(
+                                                        it.effectiveItemTypeName,
+                                                        style: const TextStyle(
+                                                          color: Color(0xFF38BDF8),
+                                                          fontSize: 10,
+                                                          fontWeight: FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                  Expanded(
+                                                    child: Text(
+                                                      locPath,
+                                                      style: theme.textTheme.bodySmall
+                                                          ?.copyWith(color: theme.hintColor),
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              trailing: Tooltip(
+                                                message: 'Drag to reorder',
+                                                child: ReorderableDragStartListener(
+                                                  index: idx,
+                                                  child: Container(
+                                                    padding: const EdgeInsets.all(8),
+                                                    child: const Icon(
+                                                      Icons.drag_handle_rounded,
+                                                      color: Color(0xFF94A3B8),
+                                                      size: 22,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              onTap: () {
+                                                setState(() {
+                                                  if (isSelected) {
+                                                    _selectedItemIds.remove(it.id);
+                                                  } else {
+                                                    _selectedItemIds.add(it.id);
+                                                  }
+                                                });
+                                              },
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                },
               ),
 
               // Action buttons
@@ -521,7 +564,9 @@ class _AddEditListDialogState extends ConsumerState<AddEditListDialog> {
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 decoration: BoxDecoration(
                   color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                  border: Border(top: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.3))),
+                  border: Border(
+                      top: BorderSide(
+                          color: colorScheme.outlineVariant.withValues(alpha: 0.3))),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,

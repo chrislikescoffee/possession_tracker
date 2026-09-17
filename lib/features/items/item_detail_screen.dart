@@ -181,6 +181,18 @@ class ItemDetailScreen extends ConsumerWidget {
                     ),
                   ),
                 ],
+                if (item.tags.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: item.tags.map((tag) => Chip(
+                      visualDensity: VisualDensity.compact,
+                      avatar: const Icon(Icons.label_outline, size: 14),
+                      label: Text(tag, style: const TextStyle(fontSize: 12)),
+                    )).toList(),
+                  ),
+                ],
 
                 const SizedBox(height: 16),
 

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:possession_tracker/models/item_list_model.dart';
 import 'package:possession_tracker/models/item_model.dart';
+import 'package:possession_tracker/core/utils/field_query_utils.dart';
 import 'package:possession_tracker/repositories/inventory_repository.dart';
 import 'package:possession_tracker/repositories/mock_inventory_repository.dart';
 
@@ -363,6 +364,51 @@ void main() {
 
       final updatedList = await repo.getItemList(list.id);
       expect(updatedList!.items.first.isCollected, isFalse);
+    });
+  });
+
+  group('Item tags and search verification', () {
+    test('Item tags default is empty and serializes correctly', () {
+      final item = Item(
+        id: 'item-tagged',
+        libraryId: 'lib-workshop-01',
+        name: 'The Great Gatsby',
+        tags: const ['book', 'fiction', 'classic'],
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      final json = item.toJson();
+      expect(json['tags'], equals(['book', 'fiction', 'classic']));
+
+      final parsed = Item.fromJson(json);
+      expect(parsed.tags, equals(['book', 'fiction', 'classic']));
+    });
+
+    test('FieldQueryUtils matches search by tag, item type, and barcode', () {
+      final item = Item(
+        id: 'item-book-01',
+        libraryId: 'lib-1',
+        name: 'Clean Code',
+        itemTypeName: 'Book',
+        barcode: 'PT-998877',
+        tags: const ['programming', 'software'],
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      // Matches by tag
+      expect(FieldQueryUtils.itemMatchesSearch(item, 'programming'), isTrue);
+      expect(FieldQueryUtils.itemMatchesSearch(item, 'software'), isTrue);
+
+      // Matches by item type
+      expect(FieldQueryUtils.itemMatchesSearch(item, 'book'), isTrue);
+
+      // Matches by barcode
+      expect(FieldQueryUtils.itemMatchesSearch(item, '998877'), isTrue);
+
+      // Non-match
+      expect(FieldQueryUtils.itemMatchesSearch(item, 'kitchen'), isFalse);
     });
   });
 }

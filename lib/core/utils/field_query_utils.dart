@@ -177,6 +177,8 @@ class FieldQueryUtils {
     if (item.name.toLowerCase().contains(q)) return true;
     if ((item.description ?? '').toLowerCase().contains(q)) return true;
     if (item.effectiveItemTypeName.toLowerCase().contains(q)) return true;
+    if (item.barcode != null && item.barcode!.toLowerCase().contains(q)) return true;
+    if (item.tags.any((t) => t.toLowerCase().contains(q))) return true;
 
     for (final entry in item.customFields.entries) {
       if (entry.key.toLowerCase().contains(q)) return true;

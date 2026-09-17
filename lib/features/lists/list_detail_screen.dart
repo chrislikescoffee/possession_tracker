@@ -78,7 +78,7 @@ class _ListDetailScreenState extends ConsumerState<ListDetailScreen> {
     );
   }
 
-  Future<void> _editDestination(ItemList list) async {
+  Future<void> _editListItems(ItemList list) async {
     final updated = await showDialog<ItemList>(
       context: context,
       builder: (ctx) => AddEditListDialog(
@@ -94,6 +94,198 @@ class _ListDetailScreenState extends ConsumerState<ListDetailScreen> {
     }
   }
 
+  Future<void> _showDestinationSettings(BuildContext context, ItemList list, List<StorageLocation> locations) async {
+    final locMap = {for (final l in locations) l.id: l};
+    ListDestinationType destType = list.destinationType;
+    String? targetLocId = list.targetLocationId;
+    final freeTextCtrl = TextEditingController(text: list.freeTextNote ?? '');
+    final borrowerNameCtrl = TextEditingController(text: list.borrowerName ?? '');
+    final borrowerContactCtrl = TextEditingController(text: list.borrowerContact ?? '');
+    DateTime? dueDate = list.dueDate;
+    final formKey = GlobalKey<FormState>();
+
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final theme = Theme.of(ctx);
+            return AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.near_me_rounded, color: Color(0xFF38BDF8)),
+                  SizedBox(width: 8),
+                  Text('Collection Destination', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              content: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: Form(
+                  key: formKey,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Set where items are moving to when collected or scanned on this list:',
+                          style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<ListDestinationType>(
+                          initialValue: destType,
+                          decoration: const InputDecoration(
+                            labelText: 'Destination Mode',
+                            prefixIcon: Icon(Icons.swap_horiz_rounded),
+                          ),
+                          items: ListDestinationType.values.map((type) {
+                            return DropdownMenuItem(
+                              value: type,
+                              child: Text(type.displayName),
+                            );
+                          }).toList(),
+                          onChanged: (val) {
+                            if (val != null) {
+                              setDialogState(() => destType = val);
+                            }
+                          },
+                        ),
+                        if (destType == ListDestinationType.storageLocation) ...[
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<String>(
+                            initialValue: targetLocId,
+                            decoration: const InputDecoration(
+                              labelText: 'Target Storage Area *',
+                              prefixIcon: Icon(Icons.folder_outlined),
+                            ),
+                            validator: (val) => val == null ? 'Please select a storage area' : null,
+                            items: locations.map((loc) {
+                              final path = _buildLocationPath(loc.id, locMap);
+                              return DropdownMenuItem(
+                                value: loc.id,
+                                child: Text(path, overflow: TextOverflow.ellipsis),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              setDialogState(() => targetLocId = val);
+                            },
+                          ),
+                        ] else if (destType == ListDestinationType.freeText) ...[
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: freeTextCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Temporary Location Note *',
+                              hintText: 'e.g. Workbench Bay 2, Truck Trunk',
+                              prefixIcon: Icon(Icons.edit_location_alt_rounded),
+                            ),
+                            validator: (val) =>
+                                val == null || val.trim().isEmpty ? 'Please enter a note' : null,
+                          ),
+                        ] else if (destType == ListDestinationType.lend) ...[
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: borrowerNameCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Borrower Name *',
+                              hintText: 'e.g. John Doe',
+                              prefixIcon: Icon(Icons.person_outline_rounded),
+                            ),
+                            validator: (val) =>
+                                val == null || val.trim().isEmpty ? 'Borrower name is required' : null,
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: borrowerContactCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Borrower Contact (Optional)',
+                              hintText: 'e.g. +61 400 123 456',
+                              prefixIcon: Icon(Icons.phone_outlined),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          InkWell(
+                            onTap: () async {
+                              final picked = await showDatePicker(
+                                context: ctx,
+                                initialDate: dueDate ?? DateTime.now().add(const Duration(days: 7)),
+                                firstDate: DateTime.now(),
+                                lastDate: DateTime.now().add(const Duration(days: 365)),
+                              );
+                              if (picked != null) {
+                                setDialogState(() => dueDate = picked);
+                              }
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: InputDecorator(
+                              decoration: const InputDecoration(
+                                labelText: 'Expected Due Date (Optional)',
+                                prefixIcon: Icon(Icons.calendar_today_rounded),
+                              ),
+                              child: Text(
+                                dueDate != null ? DateFormat.yMMMd().format(dueDate!) : 'No return date specified',
+                                style: TextStyle(
+                                  color: dueDate != null ? theme.textTheme.bodyMedium?.color : theme.hintColor,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ] else ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'Items will be checked on this list without changing their stored or relocated status in your inventory.',
+                            style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    if (!formKey.currentState!.validate()) return;
+                    final updatedList = ItemList(
+                      id: list.id,
+                      libraryId: list.libraryId,
+                      name: list.name,
+                      description: list.description,
+                      destinationType: destType,
+                      targetLocationId: destType == ListDestinationType.storageLocation ? targetLocId : null,
+                      freeTextNote: destType == ListDestinationType.freeText ? freeTextCtrl.text.trim() : null,
+                      borrowerName: destType == ListDestinationType.lend ? borrowerNameCtrl.text.trim() : null,
+                      borrowerContact: destType == ListDestinationType.lend ? borrowerContactCtrl.text.trim() : null,
+                      dueDate: destType == ListDestinationType.lend ? dueDate : null,
+                      items: list.items,
+                      createdAt: list.createdAt,
+                      updatedAt: DateTime.now(),
+                    );
+                    final repo = ref.read(repositoryProvider);
+                    await repo.saveItemList(updatedList);
+                    ref.invalidate(itemListDetailProvider(list.id));
+                    ref.invalidate(itemListsProvider);
+                    if (ctx.mounted) {
+                      Navigator.of(ctx).pop();
+                    }
+                  },
+                  child: const Text('Save Destination'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    freeTextCtrl.dispose();
+    borrowerNameCtrl.dispose();
+    borrowerContactCtrl.dispose();
+  }
+
   Future<void> _toggleItemCollected(ItemList list, String itemId, bool currentCollected) async {
     final repo = ref.read(repositoryProvider);
     try {
@@ -102,6 +294,10 @@ class _ListDetailScreenState extends ConsumerState<ListDetailScreen> {
         itemId: itemId,
         isCollected: !currentCollected,
       );
+      // Clean up return selection if unticked/uncollected
+      if (currentCollected) {
+        _selectedItemIdsForReturn.remove(itemId);
+      }
       ref.invalidate(itemListDetailProvider(list.id));
       ref.invalidate(itemListsProvider);
       ref.invalidate(libraryItemsProvider);
@@ -111,6 +307,33 @@ class _ListDetailScreenState extends ConsumerState<ListDetailScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _collectAllPending(ItemList list, List<Item> pendingItems) async {
+    if (pendingItems.isEmpty) return;
+    final repo = ref.read(repositoryProvider);
+    try {
+      for (final it in pendingItems) {
+        await repo.collectItemInList(
+          listId: list.id,
+          itemId: it.id,
+          isCollected: true,
+        );
+      }
+      ref.invalidate(itemListDetailProvider(list.id));
+      ref.invalidate(itemListsProvider);
+      ref.invalidate(libraryItemsProvider);
+      ref.invalidate(lendingRecordsProvider);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error collecting items: $e'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -161,21 +384,20 @@ class _ListDetailScreenState extends ConsumerState<ListDetailScreen> {
           return;
         }
 
-        verifiedBarcodes[reqItem.id] = scanned.trim();
+        verifiedBarcodes[reqItem.id] = scanned;
       }
     }
 
     try {
       final repo = ref.read(repositoryProvider);
+      final count = _selectedItemIdsForReturn.length;
       await repo.returnSelectedItemsInList(
         listId: list.id,
         itemIds: _selectedItemIdsForReturn.toList(),
         verifiedBarcodes: verifiedBarcodes,
       );
 
-      setState(() {
-        _selectedItemIdsForReturn.clear();
-      });
+      setState(() => _selectedItemIdsForReturn.clear());
 
       ref.invalidate(itemListDetailProvider(list.id));
       ref.invalidate(itemListsProvider);
@@ -185,7 +407,7 @@ class _ListDetailScreenState extends ConsumerState<ListDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${selectedItems.length} item(s) returned to permanent locations.'),
+            content: Text('Successfully returned $count item(s) to home location!'),
             backgroundColor: const Color(0xFF10B981),
           ),
         );
@@ -194,10 +416,37 @@ class _ListDetailScreenState extends ConsumerState<ListDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Return error: $e'),
+            content: Text('Error returning items: $e'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
+      }
+    }
+  }
+
+  Future<void> _deleteList(ItemList list) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete List?'),
+        content: Text('Are you sure you want to delete "${list.name}"? Items in inventory will remain unaffected.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      final repo = ref.read(repositoryProvider);
+      await repo.deleteItemList(list.id);
+      ref.invalidate(itemListsProvider);
+      if (mounted) {
+        context.go('/lists');
       }
     }
   }
@@ -207,15 +456,12 @@ class _ListDetailScreenState extends ConsumerState<ListDetailScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final listAsync = ref.watch(itemListDetailProvider(widget.listId));
-    final itemsAsync = ref.watch(libraryItemsProvider);
-    final locationsAsync = ref.watch(allStorageLocationsProvider);
 
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go('/lists'),
-          tooltip: 'Back to Lists',
         ),
         title: listAsync.when(
           data: (list) => Text(list?.name ?? 'List Details'),
@@ -223,45 +469,59 @@ class _ListDetailScreenState extends ConsumerState<ListDetailScreen> {
           error: (_, _) => const Text('List Error'),
         ),
         actions: [
-          listAsync.when(
+          listAsync.maybeWhen(
             data: (list) {
-              if (list == null) return const SizedBox.shrink();
-              return Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.edit_outlined),
-                    tooltip: 'Edit List',
-                    onPressed: () => _editDestination(list),
+              if (list == null) return const SizedBox();
+              return PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert_rounded),
+                onSelected: (val) {
+                  if (val == 'edit') {
+                    _editListItems(list);
+                  } else if (val == 'delete') {
+                    _deleteList(list);
+                  }
+                },
+                itemBuilder: (ctx) => [
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit_rounded, size: 18),
+                        SizedBox(width: 8),
+                        Text('Edit Name & Items'),
+                      ],
+                    ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.refresh_rounded),
-                    tooltip: 'Refresh',
-                    onPressed: () {
-                      ref.invalidate(itemListDetailProvider(list.id));
-                      ref.invalidate(libraryItemsProvider);
-                    },
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete_outline_rounded, size: 18, color: colorScheme.error),
+                        const SizedBox(width: 8),
+                        Text('Delete List', style: TextStyle(color: colorScheme.error)),
+                      ],
+                    ),
                   ),
                 ],
               );
             },
-            loading: () => const SizedBox.shrink(),
-            error: (_, _) => const SizedBox.shrink(),
+            orElse: () => const SizedBox(),
           ),
         ],
       ),
       body: listAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error loading list: $e')),
+        error: (err, _) => Center(child: Text('Error: $err')),
         data: (list) {
           if (list == null) {
             return Center(
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.error_outline, size: 48, color: Colors.amber),
+                  const Icon(Icons.error_outline_rounded, size: 48, color: Colors.amber),
                   const SizedBox(height: 12),
-                  const Text('List not found.'),
-                  const SizedBox(height: 12),
+                  const Text('List not found or has been deleted.'),
+                  const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: () => context.go('/lists'),
                     child: const Text('Back to Lists'),
@@ -271,11 +531,14 @@ class _ListDetailScreenState extends ConsumerState<ListDetailScreen> {
             );
           }
 
-          return itemsAsync.when(
+          final allItemsAsync = ref.watch(libraryItemsProvider);
+          final allLocationsAsync = ref.watch(allStorageLocationsProvider);
+
+          return allItemsAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => Center(child: Text('Error loading items: $e')),
             data: (allItems) {
-              return locationsAsync.when(
+              return allLocationsAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (e, _) => Center(child: Text('Error loading locations: $e')),
                 data: (allLocations) {
@@ -311,20 +574,14 @@ class _ListDetailScreenState extends ConsumerState<ListDetailScreen> {
                   final untickedGrouped = groupByLocation(untickedItems);
                   final tickedGrouped = groupByLocation(tickedItems);
 
-                  // Relocated / Lent items in this list eligible for "Select Relocated / Lent"
-                  final relocatedOrLentIds = list.items
-                      .where((e) {
-                        final it = itemsMap[e.itemId];
-                        return it != null && (it.isRelocated || it.isLentOut);
-                      })
-                      .map((e) => e.itemId)
-                      .toSet();
+                  final allTickedSelected = tickedItems.isNotEmpty &&
+                      tickedItems.every((it) => _selectedItemIdsForReturn.contains(it.id));
 
                   return ListView(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     children: [
                       // Top Progress & Destination Card
-                      _buildHeaderCard(context, list, locMap),
+                      _buildHeaderCard(context, list, allLocations, locMap),
                       const SizedBox(height: 12),
 
                       // TOP SCAN BUTTON & ACTIONS
@@ -354,72 +611,11 @@ class _ListDetailScreenState extends ConsumerState<ListDetailScreen> {
                             ),
                             icon: const Icon(Icons.playlist_add_rounded, size: 20),
                             label: const Text('Add / Edit Items'),
-                            onPressed: () => _editDestination(list),
+                            onPressed: () => _editListItems(list),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 14),
-
-                      // "RETURN SELECTED" BAR
-                      if (list.items.isNotEmpty)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
-                          ),
-                          child: Row(
-                            children: [
-                              Text(
-                                '${_selectedItemIdsForReturn.length} for Return',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                              ),
-                              const Spacer(),
-                              TextButton(
-                                style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-                                onPressed: () {
-                                  setState(() {
-                                    _selectedItemIdsForReturn.clear();
-                                    _selectedItemIdsForReturn.addAll(list.items.map((e) => e.itemId));
-                                  });
-                                },
-                                child: const Text('Select All'),
-                              ),
-                              TextButton(
-                                style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-                                onPressed: () {
-                                  setState(() {
-                                    _selectedItemIdsForReturn.clear();
-                                    _selectedItemIdsForReturn.addAll(relocatedOrLentIds);
-                                  });
-                                },
-                                child: const Text('Select Lent/Relocated'),
-                              ),
-                              if (_selectedItemIdsForReturn.isNotEmpty) ...[
-                                TextButton(
-                                  style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-                                  onPressed: () {
-                                    setState(() => _selectedItemIdsForReturn.clear());
-                                  },
-                                  child: const Text('Clear'),
-                                ),
-                                const SizedBox(width: 6),
-                                ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF6366F1),
-                                    foregroundColor: Colors.white,
-                                    visualDensity: VisualDensity.compact,
-                                  ),
-                                  icon: const Icon(Icons.assignment_return_rounded, size: 16),
-                                  label: const Text('Return Selected'),
-                                  onPressed: () => _handleReturnSelected(list, allItems),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 18),
 
                       // SECTION 1: TO COLLECT (UNTICKED)
                       _buildSectionHeader(
@@ -428,6 +624,20 @@ class _ListDetailScreenState extends ConsumerState<ListDetailScreen> {
                         count: untickedItems.length,
                         icon: Icons.pending_actions_rounded,
                         color: const Color(0xFFF59E0B),
+                        action: untickedItems.isNotEmpty
+                            ? TextButton.icon(
+                                style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                                icon: const Icon(Icons.done_all_rounded, size: 18, color: Color(0xFF10B981)),
+                                label: const Text(
+                                  'Collect all',
+                                  style: TextStyle(
+                                    color: Color(0xFF10B981),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                onPressed: () => _collectAllPending(list, untickedItems),
+                              )
+                            : null,
                       ),
                       const SizedBox(height: 8),
                       if (untickedItems.isEmpty)
@@ -463,13 +673,55 @@ class _ListDetailScreenState extends ConsumerState<ListDetailScreen> {
 
                       const SizedBox(height: 24),
 
-                      // SECTION 2: COLLECTED (TICKED)
+                      // SECTION 2: COLLECTED
                       _buildSectionHeader(
                         context,
                         title: 'Collected',
                         count: tickedItems.length,
                         icon: Icons.task_alt_rounded,
                         color: const Color(0xFF10B981),
+                        action: tickedItems.isNotEmpty
+                            ? Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  TextButton.icon(
+                                    style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                                    icon: Icon(
+                                      allTickedSelected ? Icons.deselect_rounded : Icons.select_all_rounded,
+                                      size: 18,
+                                    ),
+                                    label: Text(allTickedSelected ? 'Deselect all' : 'Select all'),
+                                    onPressed: () {
+                                      setState(() {
+                                        if (allTickedSelected) {
+                                          for (final it in tickedItems) {
+                                            _selectedItemIdsForReturn.remove(it.id);
+                                          }
+                                        } else {
+                                          for (final it in tickedItems) {
+                                            _selectedItemIdsForReturn.add(it.id);
+                                          }
+                                        }
+                                      });
+                                    },
+                                  ),
+                                  if (_selectedItemIdsForReturn.isNotEmpty) ...[
+                                    const SizedBox(width: 8),
+                                    FilledButton.icon(
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: const Color(0xFF6366F1),
+                                        foregroundColor: Colors.white,
+                                        visualDensity: VisualDensity.compact,
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      ),
+                                      icon: const Icon(Icons.assignment_return_rounded, size: 16),
+                                      label: Text('Return Selected (${_selectedItemIdsForReturn.length})'),
+                                      onPressed: () => _handleReturnSelected(list, allItems),
+                                    ),
+                                  ],
+                                ],
+                              )
+                            : null,
                       ),
                       const SizedBox(height: 8),
                       if (tickedItems.isEmpty)
@@ -481,7 +733,7 @@ class _ListDetailScreenState extends ConsumerState<ListDetailScreen> {
                           ),
                           child: Center(
                             child: Text(
-                              'No items ticked yet. Scan barcodes or check items above to collect.',
+                              'No items collected yet. Scan barcodes or tick items above to collect.',
                               style: TextStyle(color: theme.hintColor, fontSize: 13),
                             ),
                           ),
@@ -508,7 +760,12 @@ class _ListDetailScreenState extends ConsumerState<ListDetailScreen> {
     );
   }
 
-  Widget _buildHeaderCard(BuildContext context, ItemList list, Map<String, StorageLocation> locMap) {
+  Widget _buildHeaderCard(
+    BuildContext context,
+    ItemList list,
+    List<StorageLocation> allLocations,
+    Map<String, StorageLocation> locMap,
+  ) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -608,8 +865,8 @@ class _ListDetailScreenState extends ConsumerState<ListDetailScreen> {
                     visualDensity: VisualDensity.compact,
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                   ),
-                  onPressed: () => _editDestination(list),
-                  child: const Text('Change', style: TextStyle(fontSize: 12)),
+                  onPressed: () => _showDestinationSettings(context, list, allLocations),
+                  child: const Text('Change Destination', style: TextStyle(fontSize: 12)),
                 ),
               ],
             ),
@@ -625,6 +882,7 @@ class _ListDetailScreenState extends ConsumerState<ListDetailScreen> {
     required int count,
     required IconData icon,
     required Color color,
+    Widget? action,
   }) {
     final theme = Theme.of(context);
     return Row(
@@ -635,6 +893,8 @@ class _ListDetailScreenState extends ConsumerState<ListDetailScreen> {
           '$title ($count)',
           style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
         ),
+        const Spacer(),
+        ?action,
       ],
     );
   }
@@ -695,7 +955,8 @@ class _ListDetailScreenState extends ConsumerState<ListDetailScreen> {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: items.length,
-            separatorBuilder: (_, _) => Divider(height: 1, color: colorScheme.outlineVariant.withValues(alpha: 0.2)),
+            separatorBuilder: (_, _) =>
+                Divider(height: 1, color: colorScheme.outlineVariant.withValues(alpha: 0.2)),
             itemBuilder: (ctx, idx) {
               final item = items[idx];
               final isForReturnSelected = _selectedItemIdsForReturn.contains(item.id);
@@ -706,11 +967,25 @@ class _ListDetailScreenState extends ConsumerState<ListDetailScreen> {
                 leading: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Collection Checkbox
+                    // Single Checkbox on the left
                     Checkbox(
-                      value: isCollected,
-                      activeColor: const Color(0xFF10B981),
-                      onChanged: (_) => _toggleItemCollected(list, item.id, isCollected),
+                      value: isCollected ? isForReturnSelected : false,
+                      activeColor: isCollected ? const Color(0xFF6366F1) : const Color(0xFF10B981),
+                      onChanged: (val) {
+                        if (isCollected) {
+                          // In Collected section: checkbox toggles return selection
+                          setState(() {
+                            if (val == true) {
+                              _selectedItemIdsForReturn.add(item.id);
+                            } else {
+                              _selectedItemIdsForReturn.remove(item.id);
+                            }
+                          });
+                        } else {
+                          // In To Collect section: checkbox collects the item
+                          _toggleItemCollected(list, item.id, false);
+                        }
+                      },
                     ),
                     AppImageView(
                       imageUrl: item.primaryImageUrl,
@@ -727,8 +1002,7 @@ class _ListDetailScreenState extends ConsumerState<ListDetailScreen> {
                         item.name,
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          decoration: isCollected ? TextDecoration.lineThrough : null,
-                          color: isCollected ? theme.hintColor : null,
+                          color: isCollected ? theme.textTheme.bodyMedium?.color : null,
                         ),
                       ),
                     ),
@@ -788,21 +1062,29 @@ class _ListDetailScreenState extends ConsumerState<ListDetailScreen> {
                       ),
                   ],
                 ),
-                trailing: Tooltip(
-                  message: 'Select for Return',
-                  child: Checkbox(
-                    value: isForReturnSelected,
-                    onChanged: (val) {
-                      setState(() {
-                        if (val == true) {
-                          _selectedItemIdsForReturn.add(item.id);
-                        } else {
-                          _selectedItemIdsForReturn.remove(item.id);
-                        }
-                      });
-                    },
-                  ),
-                ),
+                trailing: isCollected
+                    ? Tooltip(
+                        message: 'Move back to To Collect',
+                        child: IconButton(
+                          icon: const Icon(Icons.undo_rounded, size: 18),
+                          color: theme.hintColor,
+                          onPressed: () => _toggleItemCollected(list, item.id, true),
+                        ),
+                      )
+                    : null,
+                onTap: () {
+                  if (isCollected) {
+                    setState(() {
+                      if (isForReturnSelected) {
+                        _selectedItemIdsForReturn.remove(item.id);
+                      } else {
+                        _selectedItemIdsForReturn.add(item.id);
+                      }
+                    });
+                  } else {
+                    _toggleItemCollected(list, item.id, false);
+                  }
+                },
               );
             },
           ),

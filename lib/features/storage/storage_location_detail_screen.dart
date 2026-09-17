@@ -296,6 +296,8 @@ class _StorageLocationDetailScreenState
           initialBarcode: draft.draftBarcode,
           initialBarcodeType: draft.draftBarcodeType,
           initialBarcodeGeneratedAt: draft.draftBarcodeGeneratedAt,
+          initialMustScanIn: draft.draftMustScanIn,
+          initialTags: draft.draftTags,
           initialColorHex: draft.colorHex,
           initialPolygonPoints: points,
         ),

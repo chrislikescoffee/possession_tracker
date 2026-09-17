@@ -31,6 +31,7 @@ class Item {
   final DateTime? barcodeGeneratedAt;
   final DateTime? barcodeLastPrintedAt;
   final bool mustScanIn;
+  final List<String> tags;
 
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -55,6 +56,7 @@ class Item {
     this.barcodeGeneratedAt,
     this.barcodeLastPrintedAt,
     this.mustScanIn = false,
+    this.tags = const [],
     required this.createdAt,
     required this.updatedAt,
   });
@@ -110,6 +112,9 @@ class Item {
           ? DateTime.tryParse(json['barcode_last_printed_at'] as String)
           : null,
       mustScanIn: json['must_scan_in'] as bool? ?? false,
+      tags: (json['tags'] is List)
+          ? (json['tags'] as List).map((e) => e.toString()).toList()
+          : const [],
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : DateTime.now(),
@@ -139,6 +144,7 @@ class Item {
         'barcode_generated_at': barcodeGeneratedAt?.toIso8601String(),
         'barcode_last_printed_at': barcodeLastPrintedAt?.toIso8601String(),
         'must_scan_in': mustScanIn,
+        'tags': tags,
         'created_at': createdAt.toIso8601String(),
         'updated_at': updatedAt.toIso8601String(),
       };
@@ -163,6 +169,7 @@ class Item {
     DateTime? barcodeGeneratedAt,
     DateTime? barcodeLastPrintedAt,
     bool? mustScanIn,
+    List<String>? tags,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -186,6 +193,7 @@ class Item {
       barcodeGeneratedAt: barcodeGeneratedAt ?? this.barcodeGeneratedAt,
       barcodeLastPrintedAt: barcodeLastPrintedAt ?? this.barcodeLastPrintedAt,
       mustScanIn: mustScanIn ?? this.mustScanIn,
+      tags: tags ?? this.tags,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

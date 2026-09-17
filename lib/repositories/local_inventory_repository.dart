@@ -9,6 +9,7 @@ import '../models/item_type_model.dart';
 import '../models/lending_record_model.dart';
 import '../models/library_model.dart';
 import '../models/storage_location_model.dart';
+import '../core/utils/field_query_utils.dart';
 import 'inventory_repository.dart';
 
 class LocalInventoryRepository implements InventoryRepository {
@@ -238,15 +239,7 @@ class LocalInventoryRepository implements InventoryRepository {
 
     if (searchQuery != null && searchQuery.trim().isNotEmpty) {
       final q = searchQuery.toLowerCase().trim();
-      result = result.where((it) {
-        if (it.name.toLowerCase().contains(q)) return true;
-        if (it.description != null && it.description!.toLowerCase().contains(q)) return true;
-        if (it.itemTypeName != null && it.itemTypeName!.toLowerCase().contains(q)) return true;
-        for (final val in it.customFields.values) {
-          if (val.toString().toLowerCase().contains(q)) return true;
-        }
-        return false;
-      }).toList();
+      result = result.where((it) => FieldQueryUtils.itemMatchesSearch(it, q)).toList();
     }
 
     return result;

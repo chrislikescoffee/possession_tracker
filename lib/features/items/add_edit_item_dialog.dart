@@ -30,6 +30,7 @@ class ItemDialogResult {
   final String? draftBarcodeType;
   final DateTime? draftBarcodeGeneratedAt;
   final bool draftMustScanIn;
+  final List<String>? draftTags;
 
   const ItemDialogResult({
     this.item,
@@ -44,6 +45,7 @@ class ItemDialogResult {
     this.draftBarcodeType,
     this.draftBarcodeGeneratedAt,
     this.draftMustScanIn = false,
+    this.draftTags,
   });
 }
 
@@ -59,6 +61,7 @@ class AddEditItemDialog extends ConsumerStatefulWidget {
   final String? initialBarcodeType;
   final DateTime? initialBarcodeGeneratedAt;
   final bool? initialMustScanIn;
+  final List<String>? initialTags;
   final int? initialColorHex;
   final List<NormalizedPoint>? initialPolygonPoints;
 
@@ -75,6 +78,7 @@ class AddEditItemDialog extends ConsumerStatefulWidget {
     this.initialBarcodeType,
     this.initialBarcodeGeneratedAt,
     this.initialMustScanIn,
+    this.initialTags,
     this.initialColorHex,
     this.initialPolygonPoints,
   });
@@ -89,7 +93,9 @@ class _AddEditItemDialogState extends ConsumerState<AddEditItemDialog> {
   late final TextEditingController _descController;
   late final TextEditingController _barcodeController;
   final _imageUrlController = TextEditingController();
+  final _tagInputController = TextEditingController();
 
+  late final List<String> _tags;
   String? _selectedLocationId;
   String? _barcodeType;
   DateTime? _barcodeGeneratedAt;
@@ -118,6 +124,7 @@ class _AddEditItemDialogState extends ConsumerState<AddEditItemDialog> {
   @override
   void initState() {
     super.initState();
+    _tags = List<String>.from(widget.initialTags ?? widget.itemToEdit?.tags ?? []);
     _selectedLocationId = widget.initialLocationId ?? widget.itemToEdit?.storageLocationId;
     _nameController = TextEditingController(
       text: widget.initialName ?? widget.itemToEdit?.name ?? '',
@@ -183,7 +190,18 @@ class _AddEditItemDialogState extends ConsumerState<AddEditItemDialog> {
     _descController.dispose();
     _barcodeController.dispose();
     _imageUrlController.dispose();
+    _tagInputController.dispose();
     super.dispose();
+  }
+
+  void _addTag() {
+    final text = _tagInputController.text.trim();
+    if (text.isNotEmpty && !_tags.any((t) => t.toLowerCase() == text.toLowerCase())) {
+      setState(() {
+        _tags.add(text);
+        _tagInputController.clear();
+      });
+    }
   }
 
   void _syncWithLatestItemType(ItemType selectedType, {bool isManualSwitch = false}) {
@@ -334,6 +352,7 @@ class _AddEditItemDialogState extends ConsumerState<AddEditItemDialog> {
         draftBarcodeType: _barcodeType,
         draftBarcodeGeneratedAt: _barcodeGeneratedAt,
         draftMustScanIn: _mustScanIn,
+        draftTags: List<String>.from(_tags),
         colorHex: _selectedColorHex,
         polygonPoints: _polygonPoints,
       ),
@@ -357,6 +376,7 @@ class _AddEditItemDialogState extends ConsumerState<AddEditItemDialog> {
       barcodeGeneratedAt: _barcodeGeneratedAt,
       barcodeLastPrintedAt: _barcodeLastPrintedAt,
       mustScanIn: _barcodeController.text.trim().isNotEmpty && _mustScanIn,
+      tags: List<String>.from(_tags),
       polygonPoints: _polygonPoints ?? widget.itemToEdit?.polygonPoints ?? [],
       customFields: _fieldValues,
       isTemporarilyRelocated: widget.itemToEdit?.isTemporarilyRelocated ?? false,
@@ -477,6 +497,46 @@ class _AddEditItemDialogState extends ConsumerState<AddEditItemDialog> {
                     prefixIcon: Icon(Icons.notes),
                   ),
                 ),
+                const SizedBox(height: 12),
+
+                // Tags Input
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _tagInputController,
+                        decoration: InputDecoration(
+                          labelText: 'Add Tag',
+                          hintText: 'e.g. vintage, fragile, loaned...',
+                          prefixIcon: const Icon(Icons.label_outline),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.add_circle, color: Color(0xFF10B981)),
+                            tooltip: 'Add Tag',
+                            onPressed: _addTag,
+                          ),
+                        ),
+                        onFieldSubmitted: (_) => _addTag(),
+                      ),
+                    ),
+                  ],
+                ),
+                if (_tags.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: _tags.map((tag) {
+                      return Chip(
+                        visualDensity: VisualDensity.compact,
+                        label: Text(tag, style: const TextStyle(fontSize: 12)),
+                        deleteIcon: const Icon(Icons.close, size: 14),
+                        onDeleted: () {
+                          setState(() => _tags.remove(tag));
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ],
                 const SizedBox(height: 14),
 
                 // Storage Area Assignment
