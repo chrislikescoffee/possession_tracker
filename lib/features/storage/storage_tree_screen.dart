@@ -94,8 +94,6 @@ class _StorageTreeScreenState extends ConsumerState<StorageTreeScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: const Color(0xFF6366F1),
-        foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: const Text('New Root Location'),
         onPressed: () async {

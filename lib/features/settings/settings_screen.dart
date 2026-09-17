@@ -15,6 +15,8 @@ import '../../state/library_state.dart';
 import '../../state/repository_provider.dart';
 import '../../state/storage_state.dart';
 import '../../state/sync_state.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_provider.dart';
 import '../items/item_type_manager_dialog.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -702,7 +704,11 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
 
-          // 2. Cloud Sync & Online Backup Card
+          // 3. Theme & Appearance Selector Card
+          _buildThemeSelectorCard(context, ref),
+          const SizedBox(height: 16),
+
+          // 4. Cloud Sync & Online Backup Card
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -1239,6 +1245,178 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildThemeSelectorCard(BuildContext context, WidgetRef ref) {
+    final themeState = ref.watch(themeProvider);
+    final themeNotifier = ref.read(themeProvider.notifier);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.palette_outlined, color: colorScheme.primary, size: 20),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Appearance & Theme',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        'Customize accent palette and lighting',
+                        style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Light / Dark / System mode toggle
+            Row(
+              children: [
+                Expanded(
+                  child: SegmentedButton<ThemeMode>(
+                    segments: const [
+                      ButtonSegment(
+                        value: ThemeMode.dark,
+                        icon: Icon(Icons.dark_mode_outlined, size: 16),
+                        label: Text('Dark'),
+                      ),
+                      ButtonSegment(
+                        value: ThemeMode.light,
+                        icon: Icon(Icons.light_mode_outlined, size: 16),
+                        label: Text('Light'),
+                      ),
+                      ButtonSegment(
+                        value: ThemeMode.system,
+                        icon: Icon(Icons.settings_brightness_outlined, size: 16),
+                        label: Text('System'),
+                      ),
+                    ],
+                    selected: {themeState.mode},
+                    onSelectionChanged: (newSelection) {
+                      if (newSelection.isNotEmpty) {
+                        themeNotifier.setMode(newSelection.first);
+                      }
+                    },
+                    style: ButtonStyle(
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 18),
+            const Text(
+              'Color Palette Presets',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 10),
+
+            // Palette options grid/wrap
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: AppColorPreset.values.map((preset) {
+                final isSelected = themeState.preset == preset;
+                return InkWell(
+                  onTap: () => themeNotifier.setPreset(preset),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    width: 155,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? preset.primary.withValues(alpha: 0.15)
+                          : (theme.brightness == Brightness.dark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9)),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isSelected ? preset.primary : const Color(0xFF334155).withValues(alpha: 0.5),
+                        width: isSelected ? 2 : 1,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            // Palette swatches
+                            Container(
+                              width: 16,
+                              height: 16,
+                              decoration: BoxDecoration(
+                                color: preset.primary,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Container(
+                              width: 12,
+                              height: 12,
+                              decoration: BoxDecoration(
+                                color: preset.secondary,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Container(
+                              width: 10,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                color: preset.tertiary,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const Spacer(),
+                            if (isSelected)
+                              Icon(Icons.check_circle_rounded, size: 16, color: preset.primary),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          preset.displayName,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                            color: isSelected ? preset.primary : null,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          preset.description,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
       ),
     );
   }

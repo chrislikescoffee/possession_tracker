@@ -175,6 +175,8 @@ class AppShell extends ConsumerWidget {
     ref.watch(authProvider);
     final syncStatus = ref.watch(syncStatusProvider);
     final isWide = MediaQuery.of(context).size.width >= 800;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     return Scaffold(
       floatingActionButtonLocation: isWide ? null : FloatingActionButtonLocation.startFloat,
@@ -182,7 +184,7 @@ class AppShell extends ConsumerWidget {
           ? null
           : FloatingActionButton.small(
               heroTag: 'global_scanner_fab',
-              backgroundColor: const Color(0xFF06B6D4),
+              backgroundColor: colorScheme.secondary,
               foregroundColor: Colors.white,
               tooltip: 'Scan Barcode / QR Code',
               onPressed: () => _handleGlobalScan(context, ref),
@@ -196,7 +198,7 @@ class AppShell extends ConsumerWidget {
               selectedIndex: selectedIndex,
               onDestinationSelected: (idx) => _onItemTapped(idx, context),
               labelType: NavigationRailLabelType.all,
-              backgroundColor: const Color(0xFF131B2E),
+              backgroundColor: theme.scaffoldBackgroundColor,
               leading: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 20),
                 child: Column(
@@ -204,8 +206,8 @@ class AppShell extends ConsumerWidget {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF6366F1), Color(0xFF06B6D4)],
+                        gradient: LinearGradient(
+                          colors: [colorScheme.primary, colorScheme.secondary],
                         ),
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -225,8 +227,8 @@ class AppShell extends ConsumerWidget {
                     FilledButton.tonalIcon(
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        backgroundColor: const Color(0xFF06B6D4).withValues(alpha: 0.15),
-                        foregroundColor: const Color(0xFF06B6D4),
+                        backgroundColor: colorScheme.secondary.withValues(alpha: 0.15),
+                        foregroundColor: colorScheme.secondary,
                       ),
                       icon: const Icon(Icons.qr_code_scanner_rounded, size: 16),
                       label: const Text('Scan', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),

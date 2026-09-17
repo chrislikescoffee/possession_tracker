@@ -104,8 +104,6 @@ class _ItemsListScreenState extends ConsumerState<ItemsListScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: const Color(0xFF6366F1),
-        foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: const Text('Add Item'),
         onPressed: () async {

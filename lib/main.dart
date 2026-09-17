@@ -6,6 +6,8 @@ import 'core/services/local_database_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/navigation/app_router.dart';
 
+import 'core/theme/theme_provider.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await LocalDatabaseService.instance.init();
@@ -18,17 +20,19 @@ void main() async {
   runApp(const ProviderScope(child: PossessionTrackerApp()));
 }
 
-class PossessionTrackerApp extends StatelessWidget {
+class PossessionTrackerApp extends ConsumerWidget {
   const PossessionTrackerApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeState = ref.watch(themeProvider);
+
     return MaterialApp.router(
       title: AppConstants.appName,
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.dark,
+      theme: themeState.lightTheme,
+      darkTheme: themeState.darkTheme,
+      themeMode: themeState.mode,
       routerConfig: appRouter,
     );
   }
