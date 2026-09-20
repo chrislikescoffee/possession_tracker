@@ -57,7 +57,7 @@ class AuthNotifier extends Notifier<User?> {
     }
   }
 
-  Future<void> signUp({required String email, required String password}) async {
+  Future<bool> signUp({required String email, required String password}) async {
     final syncService = ref.read(cloudSyncServiceProvider);
     await syncService.initializeClient();
     final client = syncService.client;
@@ -65,6 +65,25 @@ class AuthNotifier extends Notifier<User?> {
     final res = await client.auth.signUp(
       email: email.trim(),
       password: password,
+    );
+    state = res.user;
+    if (res.session != null) {
+      ref.read(syncStatusProvider.notifier).startRealtime();
+      await ref.read(syncStatusProvider.notifier).syncNow();
+      return true;
+    }
+    return false;
+  }
+
+  Future<void> verifyOtp({required String email, required String token}) async {
+    final syncService = ref.read(cloudSyncServiceProvider);
+    await syncService.initializeClient();
+    final client = syncService.client;
+    if (client == null) throw StateError('Unable to initialize Supabase connection.');
+    final res = await client.auth.verifyOTP(
+      type: OtpType.signup,
+      token: token.trim(),
+      email: email.trim(),
     );
     state = res.user;
     if (res.user != null) {

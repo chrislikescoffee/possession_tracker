@@ -189,7 +189,9 @@ class SettingsScreen extends ConsumerWidget {
   Future<void> _showAuthDialog(BuildContext context, WidgetRef ref, {bool initialSignUp = false}) async {
     final emailController = TextEditingController();
     final passwordController = TextEditingController();
+    final pinController = TextEditingController();
     var isSignUp = initialSignUp;
+    var isAwaitingOtp = false;
     var isLoading = false;
     String? errorText;
 
@@ -203,9 +205,24 @@ class SettingsScreen extends ConsumerWidget {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
             children: [
-              Icon(isSignUp ? Icons.person_add : Icons.login, color: theme.colorScheme.primary, size: 22),
+              Icon(
+                isAwaitingOtp
+                    ? Icons.mark_email_read_outlined
+                    : (isSignUp ? Icons.person_add : Icons.login),
+                color: theme.colorScheme.primary,
+                size: 22,
+              ),
               const SizedBox(width: 8),
-              Text(isSignUp ? 'Create Account' : 'Sign In', style: TextStyle(color: theme.textTheme.titleLarge?.color, fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(
+                isAwaitingOtp
+                    ? 'Verify Email PIN'
+                    : (isSignUp ? 'Create Account' : 'Sign In'),
+                style: TextStyle(
+                  color: theme.textTheme.titleLarge?.color,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ],
           ),
           content: SingleChildScrollView(
@@ -213,97 +230,133 @@ class SettingsScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Toggle tab
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: theme.scaffoldBackgroundColor,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: theme.dividerColor),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => setState(() {
-                            isSignUp = false;
-                            errorText = null;
-                          }),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            decoration: BoxDecoration(
-                              color: !isSignUp ? theme.colorScheme.primary : Colors.transparent,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              'Sign In',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: !isSignUp ? theme.colorScheme.onPrimary : theme.textTheme.bodyMedium?.color,
+                if (!isAwaitingOtp) ...[
+                  // Toggle tab
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: theme.scaffoldBackgroundColor,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: theme.dividerColor),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() {
+                              isSignUp = false;
+                              errorText = null;
+                            }),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: !isSignUp ? theme.colorScheme.primary : Colors.transparent,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                'Sign In',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: !isSignUp ? theme.colorScheme.onPrimary : theme.textTheme.bodyMedium?.color,
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => setState(() {
-                            isSignUp = true;
-                            errorText = null;
-                          }),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            decoration: BoxDecoration(
-                              color: isSignUp ? theme.colorScheme.primary : Colors.transparent,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              'Create Account',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: isSignUp ? theme.colorScheme.onPrimary : theme.textTheme.bodyMedium?.color,
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() {
+                              isSignUp = true;
+                              errorText = null;
+                            }),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: isSignUp ? theme.colorScheme.primary : Colors.transparent,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                'Create Account',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: isSignUp ? theme.colorScheme.onPrimary : theme.textTheme.bodyMedium?.color,
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  isSignUp
-                      ? 'Create an account to securely sync and access your storage inventory from any device.'
-                      : 'Sign in to access your synchronized inventory across your devices.',
-                  style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  style: TextStyle(color: theme.textTheme.bodyLarge?.color, fontSize: 13),
-                  decoration: const InputDecoration(
-                    labelText: 'Email Address',
-                    prefixIcon: Icon(Icons.email_outlined),
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 14),
+                  Text(
+                    isSignUp
+                        ? 'Create an account to securely sync and access your storage inventory from any device.'
+                        : 'Sign in to access your synchronized inventory across your devices.',
+                    style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
                   ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: passwordController,
-                  obscureText: true,
-                  style: TextStyle(color: theme.textTheme.bodyLarge?.color, fontSize: 13),
-                  decoration: const InputDecoration(
-                    labelText: 'Password',
-                    prefixIcon: Icon(Icons.lock_outline),
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    style: TextStyle(color: theme.textTheme.bodyLarge?.color, fontSize: 13),
+                    decoration: const InputDecoration(
+                      labelText: 'Email Address',
+                      prefixIcon: Icon(Icons.email_outlined),
+                      border: OutlineInputBorder(),
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: passwordController,
+                    obscureText: true,
+                    style: TextStyle(color: theme.textTheme.bodyLarge?.color, fontSize: 13),
+                    decoration: const InputDecoration(
+                      labelText: 'Password',
+                      prefixIcon: Icon(Icons.lock_outline),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ] else ...[
+                  Text(
+                    'We sent a 6-digit confirmation PIN to:\n${emailController.text.trim()}',
+                    style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13, height: 1.4),
+                  ),
+                  const SizedBox(height: 18),
+                  TextField(
+                    controller: pinController,
+                    keyboardType: TextInputType.number,
+                    textAlign: TextAlign.center,
+                    maxLength: 6,
+                    style: TextStyle(
+                      fontSize: 24,
+                      letterSpacing: 8,
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.primary,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: '6-Digit Verification PIN',
+                      hintText: '000000',
+                      counterText: '',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      prefixIcon: const Icon(Icons.pin_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    icon: const Icon(Icons.arrow_back, size: 14),
+                    label: const Text('Back to Account Details', style: TextStyle(fontSize: 12)),
+                    onPressed: () => setState(() {
+                      isAwaitingOtp = false;
+                      errorText = null;
+                    }),
+                  ),
+                ],
                 if (errorText != null) ...[
                   const SizedBox(height: 12),
                   Container(
@@ -344,6 +397,40 @@ class SettingsScreen extends ConsumerWidget {
               onPressed: isLoading
                   ? null
                   : () async {
+                      if (isAwaitingOtp) {
+                        final pin = pinController.text.trim();
+                        if (pin.isEmpty) {
+                          setState(() => errorText = 'Please enter the 6-digit confirmation PIN.');
+                          return;
+                        }
+
+                        setState(() {
+                          isLoading = true;
+                          errorText = null;
+                        });
+
+                        try {
+                          await ref.read(authProvider.notifier).verifyOtp(
+                            email: emailController.text.trim(),
+                            token: pin,
+                          );
+                          if (ctx.mounted) Navigator.of(ctx).pop();
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Account verified and signed in! Inventory synced to cloud.'),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          setState(() {
+                            isLoading = false;
+                            errorText = e.toString().replaceAll('Exception:', '').trim();
+                          });
+                        }
+                        return;
+                      }
+
                       final email = emailController.text.trim();
                       final password = passwordController.text.trim();
                       if (email.isEmpty || password.isEmpty) {
@@ -358,21 +445,36 @@ class SettingsScreen extends ConsumerWidget {
 
                       try {
                         if (isSignUp) {
-                          await ref.read(authProvider.notifier).signUp(email: email, password: password);
+                          final sessionCreated = await ref.read(authProvider.notifier).signUp(
+                            email: email,
+                            password: password,
+                          );
+                          if (sessionCreated) {
+                            if (ctx.mounted) Navigator.of(ctx).pop();
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Account created! Inventory synced to cloud.'),
+                                ),
+                              );
+                            }
+                          } else {
+                            setState(() {
+                              isLoading = false;
+                              isAwaitingOtp = true;
+                              errorText = null;
+                            });
+                          }
                         } else {
                           await ref.read(authProvider.notifier).signIn(email: email, password: password);
-                        }
-                        if (ctx.mounted) Navigator.of(ctx).pop();
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                isSignUp
-                                    ? 'Account created! Inventory synced to cloud.'
-                                    : 'Signed in successfully!',
+                          if (ctx.mounted) Navigator.of(ctx).pop();
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Signed in successfully!'),
                               ),
-                            ),
-                          );
+                            );
+                          }
                         }
                       } catch (e) {
                         setState(() {
@@ -388,7 +490,7 @@ class SettingsScreen extends ConsumerWidget {
                     },
               child: isLoading
                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : Text(isSignUp ? 'Create Account' : 'Sign In'),
+                  : Text(isAwaitingOtp ? 'Verify & Activate' : (isSignUp ? 'Create Account' : 'Sign In')),
             ),
           ],
         ),
